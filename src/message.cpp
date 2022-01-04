@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 
 #include "message.hpp"
@@ -120,6 +121,59 @@ int MsgTyper::CharToInt(const unsigned char * c) {
       + c[3];
 
     return i;
+}
+
+
+const MsgTyper::ustring TrackerRequestGenerator::GenerateMessage(Peer& peer) {
+    std::string event;
+    switch(items_[1]) {
+        case 1:
+            event = "started";
+            break;
+        case 2:
+            event = "completed";
+            break;
+        case 3:
+            event = "stopped";
+            break;
+        default:
+            break;
+    }
+
+    std::string tracker_name;
+    std::ostringstream ostr;
+    ostr << "GET /announce?info_hash="<< peer.GetInfoHash() 
+        << "&peer_id=" << peer.GetPeerId()
+        << "&port=" << items_[0]
+        << "&uploaded=" << peer.scounter.uploads
+        << "&downloaded=" << peer.scounter.downloads
+        << "$left=" << (peer.scounter.file_total_size - peer.scounter.downloads)
+        << "&event=" << event
+        //<< "&key=" << key
+        << "&compact=1"
+        //<< "&numwant=" << num_want
+        << " HTTP/1.0\r\n"
+        << "Host: " << tracker_name_ << "\r\n"
+        << "User-Agent: Bittorent\r\b"
+        << "Accept:*/*\r\n"
+        << "Accept-Encoding: gzip\r\n"
+        << "Connection: closed\r\n\r\n";
+#ifdef DEBUG
+    std::out << msg.str() << std::endl;
+#endif
+    return msg.str();
+}
+
+
+TrackerRequestGenerator& TrackerRequestGenerator::Set(std::vector<int>& item) {
+    assert( item.size() > 1);
+    items_ = item;
+    return *this;
+}
+
+
+void TrackerRequestGenerator::Set(const std::string& tname) {
+    tracker_name_ = tname;
 }
 
 

@@ -1,3 +1,4 @@
+#include <boost/asio/buffer.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <sstream>
 #define CATCH_CONFIG_MAIN
@@ -50,12 +51,18 @@ TEST_CASE("test node default", "[Struct Node]") {
 }
 
 
+TEST_CASE("Test string capacity: assign() ", "[string class]") {
+    std::string buffer = "dkfajls";
+    REQUIRE( buffer.size() == 7);
+    buffer = std::string(100, '1');
+    REQUIRE( buffer.size() == 100);
+}
+
 
 
 TEST_CASE("cache testing...SwapOut", "[class CacheV1]") {
     CacheV1 cache;
-    FilesManager fmanager;
-    cache.SetFileManager( &fmanager);
+
     std::ostringstream content;
     content << "aaaaaaaaaaaaaaaaaaaa";
     for(int i = 0; i < 80; ++i ) {

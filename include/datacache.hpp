@@ -8,9 +8,12 @@
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
+#include <istream>
 #include <map>
 #include <vector>
 #include <iostream>
+#include <stdexcept>
+#include <sys/stat.h>
 #include <vector>
 #include <list>
 #include <memory>
@@ -29,7 +32,12 @@
 //  |------
 //  :
 
+#define WRITE_TO_SINGLE_FILE
+#define ASSERT_NOT_NULPTR(x) assert( x != nullptr)
+
 typedef std::basic_string<unsigned char> ustring;
+
+
 struct Node{
     Node():index(0), offset(0),in_use(false), write_read(true),
                         is_writed(true), access_count(0) {}
@@ -81,30 +89,7 @@ struct Node{
     operator bool() {
         return in_use;
     }
-
-/*
-    bool operator==(const Node& rhl) {
-        if( this == &rhl )
-        return in_use == node.in_use;
-    }
-
-    bool operator==(const bool v) {
-        return in_use == v;
-    }
-*/
 };
-
-/*
-std::ostream& operator<<(std::ostream& os, Node& node) {
-    node.Write(os);
-    return os;
-}
-
-std::istream& operator>>(std::istream& is, Node& node) {
-    node.Read(is);
-    return is;
-}
-*/
 
 
 template<typename T>
@@ -113,119 +98,77 @@ int sum_over_vector(const std::vector<T>& v, const std::function<int(const T&)>&
 }
 
 
-class FilesManager {
+struct File {
+    std::string path;
+    size_t length;
+    std::shared_ptr<std::fstream> fs;
+};
+
+class AbsFileManager{
 private:
-
-    std::vector<std::pair<long,std::shared_ptr<std::fstream>>> files_;
-    
-    Peer* myself_;
-
-    //std::vector<bitusk::FileNode> files_info_;
-    std::string download_dir_;
-
+protected:
+    AbsFileManager() = default;
+    AbsFileManager(const AbsFileManager&);
+    AbsFileManager(const std::string& dd): download_dir_(dd) {}
+    AbsFileManager(const std::string& dd, const std::vector<File>& files): download_dir_(dd), files_info_(files) {}
+public:
+    // read from disk
+    virtual bool LoadingFiles() = 0;
+    virtual void ReadSliceNodeFromDisk(Node& node) = 0;
+    virtual const Node ReadSliceNodeFromDisk(const size_t index, const size_t offset, const size_t length)  = 0;
+    virtual bool WriteSliceNodeToDisk(const Node& node)  = 0;
+    virtual bool IntegrateFiles()  = 0;
 public:
 
-    FilesManager() = default;
-    FilesManager(const std::string& download_dir):download_dir_(download_dir){}
-
-    bool CreateFile(const std::vector<bitusk::FileNode>& files) {
-        for( auto& file: files ) {
-            std::string file_path = download_dir_ + '/' + file.path;
-            std::shared_ptr<std::fstream> fps = 
-                    std::make_shared<std::fstream>(file_path, std::ios::ate|std::ios::binary);
-            files_.push_back(std::make_pair(file.length,fps));
-        }
-        assert(files.size() == files_.size());
-        return true;
-    }
-
-    // just read didn't judge;
-    // 检查是否有piece已经下载，就不让这个class负责
-    // TODO download cache 判断一个piece是够下载完
-    void ReadFromDisk(Node& node) {
-        assert( files_.empty() == false );
-        
-    }
-
-    void WriteToDisk(Node& node) {
-
-        //把piece index 看做一个stream，挨个写，总长就是各文件相加之和
-        //if( files_.empty()) return;
-        assert( files_.empty() == false );
-        long long line_pos = node.index * 256 * 1024 + node.offset;
-
-        if( files_.size() == 1) {
-            std::fstream& fos = *(files_[0].second);
-            fos.seekp(line_pos);
-
-            //std::string tmpbuf (node.buffer.begin(), node.buffer.end());
-
-            fos << reinterpret_cast<const char*>(node.buffer.c_str());
-            //fos << tmpbuf;
-        }
+protected:
+    std::string download_dir_;
+    std::vector<File> files_info_;
+};
 
 
-        for( auto itr = files_.begin(); itr != files_.end(); ) {
-            auto& fpair = *itr;
-            if( (line_pos < fpair.first) && ( (line_pos + node.buffer.size()) < fpair.first)) {
-                //node中的内容属于一个文件
-                std::fstream& fos = *(fpair.second);
-                fos << reinterpret_cast<const char*>(node.buffer.c_str());
-                break;
-            } else if( (line_pos < fpair.first) && ((line_pos + node.buffer.size()) >= fpair.first)) {
-                //node中的内容需要多个文件
-                ustring::size_type writed_offset = 0;
-                ustring::size_type left = node.buffer.size();
+class FilesManagerSV:public AbsFileManager{
+private:
+    std::shared_ptr<std::iostream> fs_;
+    size_t piece_length_;
+    size_t total_length_;
+private:
+    FilesManagerSV() = default;
+    FilesManagerSV(const FilesManagerSV&) = default;
+    FilesManagerSV(const std::string &dd, const std::vector<File> &file);
+public:
+    // must firstly loading files
+    virtual bool LoadingFiles() override;
+    virtual void ReadSliceNodeFromDisk(Node& node) override;
+    virtual const Node ReadSliceNodeFromDisk(size_t index, size_t offset, size_t length) override;
+    virtual bool WriteSliceNodeToDisk(const Node& node) override;
+    virtual bool IntegrateFiles() override;
+public:
+    static FilesManagerSV* GetInstance(const std::string& dd, const std::vector<File>& file);
+    static FilesManagerSV* GetInstance();
 
-                std::fstream& fos = *(fpair.second);
-                fos.seekp(line_pos);
-                ustring tmpbuffer (node.buffer.begin(), node.buffer.begin() + fpair.first - line_pos);
-                fos << reinterpret_cast<const char*>(tmpbuffer.c_str());
-                node.buffer.erase(node.buffer.begin(), node.buffer.begin() + fpair.first - line_pos);
-                itr++;
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L ) || __cplusplus >= 201703L )
+    inline static std::atomic<FilesManagerSV*> mfm_instance;
+    inline static std::mutex m_mutex;
+#else
+    static std::atomic<FilesManagerSV*> mfm_instance;
+    static std::mutex m_mutex;
+#endif
 
-                // 3个文件+的情况
-                while( !node.buffer.empty() ) {
-                    if( itr->first >= node.buffer.size() ) {
-                        std::fstream& fos = *(itr->second);
-                        fos.seekp(0);
-                        fos << reinterpret_cast<const char*>(node.buffer.c_str());
-                        node.buffer.erase(node.buffer.begin(), node.buffer.end());
-                    } else {
-                        std::fstream& fos = *(itr->second);
-                        fos.seekp(0);
-                        tmpbuffer.clear();
-                        tmpbuffer.assign(node.buffer.begin(), node.buffer.begin() + itr->first);
-                        fos << reinterpret_cast<const char*>(tmpbuffer.c_str());
-                        node.buffer.erase(node.buffer.begin(), node.buffer.begin() + itr->first);
-                        itr++;
-                    }
-                }
-                break;
-            } else {
-                line_pos -= itr->first;
-                itr++;
-            }
-
-        }
-        return;
-    }
-
-    const size_t Size() const {
-        return files_.size();
-
-    }
+public:
+    const bool IsFileReady() const;
 };
 
 
 
-inline FilesManager& operator<<(FilesManager& os, Node& node) {
-    os.WriteToDisk(node);
+
+
+inline AbsFileManager& operator<<(AbsFileManager& os, Node& node) {
+    os.WriteSliceNodeToDisk(node);
     return os;
 }
 
-inline FilesManager& operator>>(FilesManager& is, Node& node) {
-    is.ReadFromDisk(node);
+inline AbsFileManager& operator>>(AbsFileManager& is, Node& node) {
+    is.ReadSliceNodeFromDisk(node);
     return is;
 }
 
@@ -240,12 +183,15 @@ public:
                 return a.offset == b.offset; }), slices.end());
         std::sort(slices.begin(), slices.end(), [](auto& a, auto& b) {
                 return a.offset < b.offset; });
-
         return true;
     }
 
     void Add(Node& node) {
         slices.push_back(node);
+    }
+
+    const std::vector<Node>& Get() const {
+        return slices;
     }
 };
 
@@ -255,6 +201,30 @@ inline PieceNode& operator+=(PieceNode& pnode, Node& node) {
 }
 
 
+// enhance FilesManager
+class FilesManagerDecorator: public AbsFileManager {
+public:
+    static FilesManagerDecorator& GetInstance();
+private:
+    FilesManagerDecorator(): fmanager_(nullptr){}
+    FilesManagerDecorator(AbsFileManager* fm): fmanager_(fm) {}
+
+public:
+    // inheret api
+    virtual bool LoadingFiles() override;
+    virtual void ReadSliceNodeFromDisk(Node& node) override;
+    virtual const Node ReadSliceNodeFromDisk(const size_t index, const size_t offset, const size_t length) override;
+    virtual bool WriteSliceNodeToDisk(const Node& node) override;
+    virtual bool IntegrateFiles() override;
+public:
+    const PieceNode ReadPieceFromDisk(const size_t index, const size_t piece_n);
+    bool WritePieceToDisk(const PieceNode& piece);
+    const size_t GetTotalSize() const;
+private:
+    AbsFileManager* fmanager_;
+};
+
+
 
 class CacheV1{
 private:
@@ -262,15 +232,9 @@ private:
     
     std::vector<PieceNodeType> cache_;
     std::map<size_t, std::vector<PieceNodeType>::iterator> hash_table_;
-    FilesManager* fmanager_;
     Peer* myself_;
 public:
     // some other operation
-
-    void SetFileManager(FilesManager* fm) {
-        if( ! fm ) return;
-        fmanager_ = fm;
-    }
 
     void SetMyselfPeer(Peer* myself) {
         if( !myself ) return;
@@ -279,8 +243,7 @@ public:
 
 public:
     CacheV1(): cache_(64, std::vector<Node>()) {}
-    CacheV1(size_t ps, size_t ss): cache_(ps, std::vector<Node>()),
-                                    fmanager_(nullptr), myself_(nullptr) {}
+    CacheV1(size_t ps, size_t ss): cache_(ps, std::vector<Node>()),myself_(nullptr) {}
 
     std::vector<PieceNodeType>::iterator SwapOut() {
         // 1. 找到访问次数最少的Piece node
@@ -313,7 +276,8 @@ public:
         // this class didn't check that is piece in here,
         // this task privoded by uppper logic
         // only if piece has been downloaded, Get() call will be called.
-        assert( fmanager_ != nullptr );
+        AbsFileManager* fmanager_ = FilesManagerSV::GetInstance();
+        ASSERT_NOT_NULPTR(fmanager_);
 
         std::vector<PieceNodeType>::iterator slots = GetEmptySlot();
         for( int i = 0; i < 16; ++i){
@@ -321,6 +285,7 @@ public:
             *fmanager_ >> node;
         }
     }
+
 
     void Refer(Node new_data) {
         std::vector<PieceNodeType>::iterator slots;
@@ -340,6 +305,7 @@ public:
             }
         }
     }
+
 
     void Refer(std::vector<Node> new_data) {
         if( new_data.empty()) return;
@@ -386,122 +352,6 @@ public:
 
 };
 
-
-/*
-// 这些代码是另外一种写法 很可惜失败了
-template <typename IT, typename DT, size_t N>
-class ThreadSafeCache{
-private:
-    typedef std::pair<IT,DT> DataType;
-    struct node{
-        std::shared_ptr<DataType> data;
-        std::unique_ptr<node> next;
-    };
-
-    std::shared_ptr<node> head;
-    node* tail;
-public:
-    std::list<std::shared_ptr<DataType>> try_read(size_t piece_index, size_t slice_offset);
-
-    std::list<std::shared_ptr<DataType>> wait_read(size_t piece_index, size_t slice_offset);
-
-    void try_write(const DataType& new_data);
-    void try_write(DataType&& new_data);
-
-    void waite_write(const DataType& new_data);
-    void waite_write(DataType&& new_data);
-
-
-
-
-    
-};
-
-class SwapStrategy {
-
-};
-
-template<typename IT, typename DT, typename STRATGY = SwapStrategy >
-class DataCache {
-private:
-
-    typedef std::pair<IT,std::shared_ptr<DT>> DataType;
-    typedef std::shared_ptr<DataType> DataPtrType;
-
-
-   // std::map<size_t,DataPtrType> cache_;
-   //
-    std::vector<DataType> cache;
-    std::map<size_t, typename std::vector<DataType>::iterator> index_;
-
-    STRATGY strategy;
-
-public:
-
-
-    void Write(DataType new_data);
-    void Write(IT info, DT new_data);
-
-    template<typename Funtional>
-    std::shared_ptr<DT> Read(size_t index, Funtional func);
-
-};
-
-*/
-
-/*
-struct PieceState;
-
-class AbsSwapPolicy {
-public:
-    
-};
-
-
-
-class Cache {
-public:
-    Cache() = delete;
-    Cache(const Cache& cache) = delete;
-    Cache& operator=(const Cache& cache) = delete;
-    Cache(std::iostream& iostream);
-    Cache(Cache&& cache);
-    ~Cache();
-
-    Cache(size_t piece_limit, size_t slice_n);
-    typedef std::vector<unsigned char> SliceNodeType;
-    typedef std::map<size_t, std::pair<PieceState, std::vector<std::shared_ptr<SliceNodeType>>>> CacheType;
-
-    // Public to user write and read from cache
-
-    Cache& Write(std::pair<size_t,size_t> pos, std::shared_ptr<SliceNodeType> node);
-    template<typename T>
-    Cache& Write(size_t piece_index, typename T::iterator beg, typename T::iterator end);
-    
-    SliceNodeType            Read(size_t piece_index, size_t slice_offset);
-    std::vector<SliceNodeType> Read(size_t piece_index);
-public: //  utilities
-    bool IsInCache(size_t piece_index);
-    bool IsInCache(size_t piece_index, size_t slice_offset);
-
-
-private:
-    // class self owned, write or read from DISK
-    void ReadFromDisk(size_t piece_index, size_t slice_offset);
-    void ReadFromDisk(size_t piece_index);
-
-    void WriteToDisk(size_t piece_index, size_t slice_offset);
-    void WriteToDisk(size_t piece_index);
-
-private:
-    CacheType cache_;
-    // Cache capbilty
-    size_t piece_limit_;
-    size_t slice_size_;
-    std::iostream& iostream_;
-};
-
-*/
 
 
 #endif // BITUSK_SRC_DATACACHE_H__

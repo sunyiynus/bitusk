@@ -33,6 +33,8 @@ public:
     static int IntToChar(int i, uostringstream& os);
     static int IntToChar(int i, unsigned char* c);
     static int CharToInt(const unsigned char* c);
+    static const std::string ConvertUstringToString(const std::basic_string<unsigned char>& src);
+
 };
 
 
@@ -72,7 +74,28 @@ public:
 // 小类太多，没有任何意义？？？
 // 假设的情况：以后需要添加新的msg类型。
 
+// message handle of trakcers
+
+class TrackerRequestGenerator: public AbsMessageGenerator{
+public:
+    virtual const ustring GenerateMessage(Peer& peer) override;
+    virtual TrackerRequestGenerator& Set(std::vector<int>& item) override;
+    void Set(const std::string& tname);
+protected:
+    uostringstream msg;
+    std::vector<int> items_;
+    std::string tracker_name_;
+};
+
+
+class TrackerMsgFactory: public AbsMsgFactory {
+public:
+    virtual AbsMessageGenerator* GetMsgGenerator(Peer& peer, int msg_type){}
+    virtual AbsMessageParser* GetMsgParser(Peer& peer){}
+};
+
 // First Party of this mudel
+// Peer data exchange needed message generator
 
 class HandShakeMsg: public AbsMessageGenerator {
 public:

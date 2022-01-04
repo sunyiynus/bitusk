@@ -5,7 +5,7 @@
 #    GIT_TAG v2.13.7
 #    )
 #FetchContent_MakeAvailable(Catch2)
-set(CMAKE_EXE_LINKER_FLAGS "-lpthread")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lpthread")
 include_directories(${PROJECT_SOURCE_DIR}/include/)
 include_directories(${PROJECT_SOURCE_DIR}/extern/catch)
 #set(CATCH_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/extern/Catch2)

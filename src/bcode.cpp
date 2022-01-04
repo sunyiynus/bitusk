@@ -1,5 +1,7 @@
 
+#include <cstddef>
 #include <stack>
+#include <string>
 
 #include "bcode.hpp"
 
@@ -19,13 +21,14 @@ string Bcode::extractSegment(position& pos, const char de)
 }
 
 
-int Bcode::parseInt(position& pos)
+size_t Bcode::parseInt(position& pos)
 {
 		string tmp;
-		int result = 0;
+		size_t result = 0;
 		tmp = extractSegment(pos, 'e');
 		try{
-				result = stoi(tmp);
+                //std::cout <<"parse int error debug : " << tmp << std::endl;
+				result = std::stoll(tmp);
 		} catch (exception& ec){
 		}
 		return result;

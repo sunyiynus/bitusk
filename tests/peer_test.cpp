@@ -26,3 +26,10 @@ TEST_CASE("Peer Initialize...", "[Peer]")
     std::cout << "Info hash " << reinterpret_cast<const char*>(myself.info_hash.c_str()) << std::endl;
     std::cout << "peer id " << reinterpret_cast<const char*>(myself.peer_id.c_str()) << std::endl;
 }
+
+
+
+TEST_CASE("PeersManager::GetInstance() testing", "[class PeersManager]") {
+    PeersManager* pm = PeersManager::GetInstance();
+    REQUIRE( pm != nullptr);
+}

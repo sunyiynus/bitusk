@@ -4,6 +4,7 @@
 // Bittorrent Protocol Code Parse
 #ifndef BITUSK_SRC_BCODE_H
 #define BITUSK_SRC_BCODE_H
+#include <bits/c++config.h>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -25,7 +26,7 @@ class Bcode{
 public:
 		static string extractSegment(position&, const char);
         static bool findPair(position& pos);
-		static int parseInt(position&);
+		static size_t parseInt(position&);
         // Get String Type bcode. Reading intervel [begin, end), pos will
         // change by this rule.
         // Pass a reference of position and

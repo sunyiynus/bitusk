@@ -5,6 +5,7 @@
 #ifndef BITUSK_SRC_METAFILEPARSER_H
 #define BITUSK_SRC_METAFILEPARSER_H
 
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <memory>
@@ -31,7 +32,7 @@ struct FileNode{
   FileNode& operator=(const FileNode&) = default;
   ~FileNode() = default;
   std::string path;
-  long length;
+  size_t length;
 };
 
 class MetafileObject{
