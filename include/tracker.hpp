@@ -8,11 +8,14 @@
 #include "message.hpp"
 #include "bcode.hpp"
 
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/concept_check.hpp>
+#include <boost/date_time/posix_time/posix_time_duration.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/exception/exception.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/operators.hpp>
@@ -36,6 +39,10 @@
 #include <stdexcept>
 #include <string>
 #include <arpa/inet.h>
+#include <mutex>
+
+
+#define  DEBUG
 
 using namespace bitusk;
 using namespace boost::asio;
@@ -58,7 +65,8 @@ constexpr size_t MAXBUFFERLEN = 1024 * 10;
 
 const std::string GenerateRequestMsg(const std::string& event, const std::string& port, const std::string& tracker_name);
 int http_encode(const unsigned char* in, int lenin, char* out, int lenout);
-const std::vector<ip::tcp::endpoint> ParseHttpResponse(const std::string& response);
+const std::vector<ip::tcp::endpoint> GetPeersFromHttpResponse(const std::string& response);
+size_t GetMinIntervalFromHttpResponse(const std::string& str);
 
 
 //template <typename T>
@@ -75,6 +83,8 @@ public:
     std::string port;
     std::string state;
     dictionary records;
+    boost::shared_ptr<deadline_timer> timer;
+    ip::tcp::endpoint ep;
 
     char WriteBuffer[MAXBUFFERLEN];
     char ReadBuffer[MAXBUFFERLEN];
@@ -159,6 +169,7 @@ public:
             SocketPtr sok (new ip::tcp::socket(ioserver_));
             tck->socketptr = sok;
             tck->state = "started";
+            tck->ep = ep;
             sok->async_connect(ep, MEM_FN2(OnConnection, tck, _1));
         } catch ( const boost::wrapexcept<boost::system::system_error>& err) {
             std::cout << err.what() << std::endl;
@@ -175,7 +186,9 @@ public:
         }
     }
 
-
+    void ShiftToWrite(TrackerPtr tck, const error_code& er) {
+        if( !er ) tck->socketptr->async_connect(tck->ep, MEM_FN2(OnConnection, tck, _1));
+    }
 
 
     void DoWrite(TrackerPtr tck) {
@@ -226,10 +239,21 @@ public:
         std::cout << tck->ReadBuffer<< std::endl;
         if( recv_msg.find("400 Invalid Request") != std::string::npos ) {
             std::cout << "the request didn't matching the standard." << std::endl;
+            return;
         }
 
-        auto peers = ParseHttpResponse(recv_msg);
-        
+        auto peers = GetPeersFromHttpResponse(recv_msg);
+        size_t min_interval = GetMinIntervalFromHttpResponse(recv_msg);
+#ifdef DEBUG
+        std::cout << "time min interval : " << min_interval << std::endl;
+#endif
+
+        tck->socketptr->close();
+        tck->timer = boost::make_shared<deadline_timer>(ioserver_,
+                        boost::posix_time::seconds( (min_interval > 0)? 
+                                    (min_interval + 10):(1000)));
+        tck->timer->async_wait(MEM_FN2(ShiftToWrite,tck, _1));
+
         std::memset(tck->ReadBuffer,0,MAXBUFFERLEN);
     }
 
@@ -294,7 +318,7 @@ const std::string GenerateRequestMsg(const std::string& event,
 }
 
 
-const std::vector<ip::tcp::endpoint> ParseHttpResponse(const std::string& response) {
+const std::vector<ip::tcp::endpoint> GetPeersFromHttpResponse(const std::string& response) {
     std::vector<ip::tcp::endpoint> result;
     if ( response.empty() ) {
         return result;
@@ -340,6 +364,18 @@ const std::vector<ip::tcp::endpoint> ParseHttpResponse(const std::string& respon
     }
 #endif
     return result;
+}
+
+
+size_t GetMinIntervalFromHttpResponse(const std::string& str) {
+    std::string::size_type pos = std::string::npos;
+    std::string cp_response (str);
+    if( (pos = cp_response.find("12:min interval")) != std::string::npos ){
+        std::string::iterator itr = cp_response.begin() + pos + 15;
+
+        return Bcode::parseInt(++itr);
+    }
+    return 0;
 }
 
 int http_encode(const unsigned char* in, int lenin, char* out, int lenout) {

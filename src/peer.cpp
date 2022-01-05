@@ -1,7 +1,11 @@
 #include "peer.hpp"
 
 #include <atomic>
+#include <boost/asio/connect.hpp>
 #include <mutex>
+#include <boost/smart_ptr/make_shared_array.hpp>
+#include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/function.hpp>
 
 
 // RequestPiece::RequestPiece(size_t i, size_t so, size_t len): index(i), slice_offset(so), length(len) {}
@@ -41,11 +45,11 @@ PeersManager* PeersManager::GetInstance() {
 }
 
 
-Peer& PeersManager::GetMyself() {
+inline Peer& PeersManager::GetMyself() {
     return myself_;
 }
 
 
-std::vector<boost::shared_ptr<Peer>>& PeersManager::GetPeers() {
+inline std::vector<boost::shared_ptr<Peer>>& PeersManager::GetPeers() {
     return peers_;
 }

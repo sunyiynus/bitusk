@@ -4,6 +4,7 @@
 #include "peer.hpp"
 #include <sstream>
 #include <string>
+#include <mutex>
 
 class Peer;
 
