@@ -1,7 +1,6 @@
 #ifndef BITUSK_SRC_PEER_H__
 #define BITUSK_SRC_PEER_H__
-#include <boost/asio/io_context.hpp>
-#include <boost/system/error_code.hpp>
+
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -10,6 +9,7 @@
 #include <list>
 #include <atomic>
 
+#include <boost/system/error_code.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
@@ -20,6 +20,7 @@
 #include <boost/bind.hpp>
 
 #include "bitfield.hpp"
+#include "message.hpp"
 
 
 using namespace boost::asio;
@@ -32,6 +33,7 @@ using namespace boost::asio;
 #define MEM_FN3(x,y,z,m)  boost::bind(&SelfType::x, shared_from_this(), y, z, m)
 #define MEM_FN4(x,y,z,m,p)  boost::bind(&SelfType::x, shared_from_this(), y, z, m, p)
 
+typedef boost::shared_ptr<ip::tcp::socket> SocketPtr;
 
 
 struct RequestPiece {
@@ -47,6 +49,8 @@ struct RequestPiece {
     size_t length;
 };
 
+
+
 namespace PeerState{
     constexpr int kUninitial = -2;
     constexpr int kInitial = -1;
@@ -59,8 +63,6 @@ namespace PeerState{
 };
 
 
-
-
 class SpeedCounter{
 public:
     size_t downloads;
@@ -68,33 +70,12 @@ public:
     size_t file_total_size;
 public:
     void Start();
+    double DownloadSpeed();
+    double UploadSpeed();
 };
 
 
 
-
-class AbsPeer{
-public:
-    virtual void InitSocket() = 0;
-/*
-    void SetState();
-    void WriteBuffer();
-    void ReadBuffer();
-    void GetBitmap() const;
-    void GetBitmap();
-    void CountingDownload();
-    void CountingUpload();
-    void Timing();
-    void Retiming();
-
-    */
-};
-
-
-
-
-
-typedef boost::shared_ptr<ip::tcp::socket> SocketPtr;
 
 
 
@@ -183,12 +164,12 @@ inline const std::string Peer::GetPeerId() {
 
 
 
-bool Initial(Peer& myself, Peer&);
-bool HalfShaked(Peer& myself, Peer&);
-bool HandShaked(Peer& myself, Peer&);
-bool SendBitfield(Peer& myself, Peer&);
-bool Data(Peer& myself, Peer&);
-bool Closing(Peer& myself, Peer&);
+bool Initial(Peer& myself, Peer& peer);
+bool HalfShaked(Peer& myself, Peer& peer);
+bool HandShaked(Peer& myself, Peer& peer);
+bool SendBitfield(Peer& myself, Peer& peer);
+bool Data(Peer& myself, Peer& peer);
+bool Closing(Peer& myself, Peer& peer);
 
 
 //  peer_interested    am_choking
@@ -218,24 +199,66 @@ public:
 public:
     Peer& GetMyself();
     std::vector<boost::shared_ptr<Peer>>& GetPeers();
-    bool AddPeer(const ip::tcp::endpoint& ep);
+
+    bool AddPeer(const ip::tcp::endpoint& ep) {
+        ConnectPeer(ep);
+    }
 
 public:
     // network io
 
-    void ConnectingPeer(const ip::tcp::endpoint& ep) {
+    void ConnectPeer(const ip::tcp::endpoint& ep) {
         Peer::Ptr peer = boost::make_shared<Peer>();
         peer->ep = ep;
-        peer->socket = boost::make_shared<ip::tcp::socket>(ioc_);
+        SocketPtr socket = boost::make_shared<ip::tcp::socket>(ioc_);
+        peer->socket = socket;
         peer->processor = Initial;
-        async_connect(*(peer->socket), ep, MEM_FN2(DoWrite,peer,_1))
+        socket->async_connect(ep, MEM_FN2(OnConnection, peer, _1));
     }
 
-    void DoWrite(Peer::Ptr peerptr, const error_code& er) {
-        if( er ) return;
+
+    void OnConnection(Peer::Ptr peerptr, const error_code& er) {
+        if( er ) {
+            // write to some;
+        }
+        peers_.push_back(peerptr);
+        DoWrite(peerptr);
+    }
+
+    void DoWrite(Peer::Ptr peerptr) {
+
         peerptr->processor(myself_, *peerptr);
-        peerptr->socket->async_write_some(buffer(peerptr->write_buffer_str),
-                            MEM_FN(t))
+        async_write(*(peerptr->socket), buffer(peerptr->write_buffer_str),
+                            MEM_FN2(OnWrite, peerptr, _1));
+    }
+
+
+    void OnWrite(Peer::Ptr peerptr, const error_code& er) {
+        if( er ){
+            // error handle
+        }
+
+        DoRead(peerptr);
+    }
+
+    void DoRead(Peer::Ptr peerptr) {
+        async_read(*(peerptr->socket), buffer(peerptr->read_buffer, Peer::MaxBufferSize),
+                    MEM_FN3(OnRead, peerptr, _1, _2));
+    }
+
+    void OnRead(Peer::Ptr peerptr, const error_code& er, size_t bytes) {
+        if( er ) {
+            if( bytes == 0 ) {
+                DoWrite(peerptr);
+            }
+        }
+
+        ProcessMsg(peerptr);
+        DoWrite(peerptr);
+    }
+
+    void ProcessMsg(Peer::Ptr peerptr) {
+        peerptr->processor(myself_, *peerptr);
     }
 
 private:

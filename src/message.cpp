@@ -7,6 +7,27 @@
 
 #include "message.hpp"
 
+
+
+
+const std::string MsgTyper::CreateHandShakedMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
+    std::string name = "BitTorrent protocol";
+    unsigned char pstrlen = 19;
+    msg << pstrlen;
+    msg << reinterpret_cast<const unsigned char*>(name.c_str());
+    for(int i = 0; i < 8; ++i) msg.put((unsigned char)'0x00');
+           msg << myself.info_hash.c_str();
+           msg << myself.peer_id.c_str();
+    return std::string(reinterpret_cast<const char*>(msg.str()));
+}
+
+
+
+
+
+
+// may be abandoned
 // 另外一种设计，比如
 
 AbsMessageGenerator* MsgGeneratorFactory::GetMsgGenerator(Peer& peer, int msg_type) {

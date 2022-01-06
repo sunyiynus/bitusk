@@ -36,6 +36,14 @@ public:
     static int CharToInt(const unsigned char* c);
     static const std::string ConvertUstringToString(const std::basic_string<unsigned char>& src);
 
+    static const std::string CreateHandShakedMsg(Peer& myself, Peer& peer);
+    static const std::string CreateKeepAliveMsg(Peer& myself, Peer& peer);
+    static const std::string CreateChokedMsg(Peer& myself, Peer& peer);
+    static const std::string CreateUnchokedMsg(Peer& myself, Peer& peer);
+    static const std::string CreateInterestedMsg(Peer& myself, Peer& peer);
+    static const std::string CreateUninterestedMsg(Peer& myself, Peer& peer);
+    static const std::string CreateHaveMsg(Peer& myself, Peer& peer);
+
 };
 
 

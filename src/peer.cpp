@@ -1,4 +1,5 @@
 #include "peer.hpp"
+#include "message.hpp"
 
 #include <atomic>
 #include <boost/asio/connect.hpp>
@@ -9,13 +10,6 @@
 
 
 // RequestPiece::RequestPiece(size_t i, size_t so, size_t len): index(i), slice_offset(so), length(len) {}
-
-
-
-Peer& Peer::SetState(int st) {
-    state = st;
-    return *this;
-}
 
 
 
@@ -45,11 +39,58 @@ PeersManager* PeersManager::GetInstance() {
 }
 
 
-inline Peer& PeersManager::GetMyself() {
-    return myself_;
+
+bool Initial(Peer &myself, Peer& peer) {
+    peer.write_buffer_str.clear();
+    peer.write_buffer_str = MsgTyper::CreateHandShakeMsg(myself, peer);
+    peer.processor = HalfShaked;
 }
 
 
-inline std::vector<boost::shared_ptr<Peer>>& PeersManager::GetPeers() {
-    return peers_;
+bool HalfShaked(Peer &myself, Peer &peer) {
+    std::string msg (peer.read_buffer);
+    // parse recv shake msg
+    if (ParseHandShakeMsg(myself, peer)) {
+        peer.processor = HandShaked;
+    }
+}
+
+
+bool HandShaked(Peer &myself, Peer &peer) {
+    peer.write_buffer_str = MsgTyper::CreateBitfieldMsg(myself, peer);
+    peer.processor = SendBitfield;
+}
+
+
+bool SendBitfield(Peer &myself, Peer &peer) {
+    if( ParseBitfieldMsg(myself, peer)) {
+        peer.processor = Data;
+        peer.data_exchange_processor = Data01;
+    }
+}
+
+
+bool Data(Peer &myself, Peer &peer) {
+    peer->data_exchange_processor(myself, peer);
+    peer.data_exchange_processor = Data01;
+}
+
+bool Closing(Peer &myself, Peer &peer) {
+
+}
+
+bool Data01(Peer &myself, Peer &) {
+    //
+}
+
+bool Data00(Peer &myself, Peer &) {
+
+}
+
+bool Data11(Peer &myself, Peer &) {
+
+}
+
+bool Data10(Peer &myself, Peer &) {
+
 }
