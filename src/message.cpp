@@ -1,14 +1,47 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <exception>
+#include <functional>
 #include <iterator>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
+#include <queue>
+#include <set>
+
+#include <boost/function.hpp>
 
 #include "message.hpp"
+#include "Utilities.hpp"
+
+#define UCHAR( x ) static_cast<unsigned char>( x )
+
+MsgTyper::ustring MsgTyper::keep_alive    { 0x0, 0x0, 0x0, 0x0 };
+MsgTyper::ustring MsgTyper::chocke        { 0x0, 0x0, 0x0, 0x1, 0x0};
+MsgTyper::ustring MsgTyper::unchocke      { 0x0, 0x0, 0x0, 0x1, 0x1};
+MsgTyper::ustring MsgTyper::interested    { 0x0, 0x0, 0x0, 0x1, 0x2};
+MsgTyper::ustring MsgTyper::uninterested  { 0x0, 0x0, 0x0, 0x1, 0x3};
+MsgTyper::ustring MsgTyper::have          { 0x0, 0x0, 0x0, 0x5, 0x4};
+MsgTyper::ustring MsgTyper::request       { 0x0, 0x0, 0x0, 0xd, 0x6};
+MsgTyper::ustring MsgTyper::cancel        { 0x0, 0x0, 0x0, 0xd, 0x8};
+MsgTyper::ustring MsgTyper::port          { 0x0, 0x0, 0x0, 0x3, 0x9};
+std::map<int, boost::function<bool(Peer&,Peer&, const MsgTyper::ustring&)>> MsgTyper::processors;
 
 
 
+
+
+const std::string MsgTyper::CreateMsg(Peer& myself, Peer& peer) {
+
+}
+
+const std::string BasicCreateMsg(Peer& myself,
+    Peer& peer, boost::function<void(Peer&, Peer&, std::basic_ostringstream<unsigned char>&)> func) {
+    MsgTyper::uostringstream msg;
+    func(myself, peer, msg);
+    return bitusk::ConvertUstringToString(msg.str());
+}
 
 const std::string MsgTyper::CreateHandShakedMsg(Peer& myself, Peer& peer) {
     uostringstream msg;
@@ -16,305 +49,72 @@ const std::string MsgTyper::CreateHandShakedMsg(Peer& myself, Peer& peer) {
     unsigned char pstrlen = 19;
     msg << pstrlen;
     msg << reinterpret_cast<const unsigned char*>(name.c_str());
-    for(int i = 0; i < 8; ++i) msg.put((unsigned char)'0x00');
+    for(int i = 0; i < 8; ++i) msg.put(UCHAR(0));
            msg << myself.info_hash.c_str();
            msg << myself.peer_id.c_str();
-    return std::string(reinterpret_cast<const char*>(msg.str()));
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
 
-
-
-
-// may be abandoned
-// 另外一种设计，比如
-
-AbsMessageGenerator* MsgGeneratorFactory::GetMsgGenerator(Peer& peer, int msg_type) {
-
-    switch (msg_type) {
-    case MsgNum::kHandShake:
-        return new HandShakeMsg();
-        break;
-    case MsgNum::kKeepAlive:
-        return new KeepAliveMsg();
-        break;
-    case MsgNum::kChoke:
-        return new ChokedMsg();
-        break;
-    case MsgNum::kUnchoke:
-        return new UnChockdMsg();
-        break;
-    case MsgNum::kInterested:
-        return new InterestedMsg();
-        break;
-    case MsgNum::kUnInterested:
-        return new UnInterestedMsg();
-        break;
-    case MsgNum::kHave:
-        return new HaveMsg();
-        break;
-    case MsgNum::kBitfield:
-        return new BitfieldMsg();
-        break;
-    case MsgNum::kRequest:
-        return new RequestMsg();
-        break;
-    case MsgNum::kPiece:
-        return new PieceMsg();
-        break;
-    case MsgNum::kCancel:
-        return new CancelMsg();
-        break;
-    default:
-        return nullptr;
-    }
-
+const std::string MsgTyper::CreateKeepAliveMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
+    msg << UCHAR(0x0);
+    msg << UCHAR(0x0);
+    msg << UCHAR(0x0);
+    msg << UCHAR(0x0);
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-AbsMessageParser* MsgParserFactory::GetMsgParser(Peer &peer) {
-/*
-    switch (CharToInt(peer.read_buffer)) {
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        case MsgNum::kCancel:
-            return new ProcessCancelMsg();
-            break;
-        default:
-            return nullptr;
-            break;
-    }
-    */
-}
-
-
-int MsgTyper::IntToChar(int i, uostringstream& os) {
-    unsigned char c [4] = {0};
-    IntToChar(i, c);
-    os << c[0] << c[1] << c[2] << c[3];
-    return 0;
-}
-
-
-int MsgTyper::IntToChar(int i, unsigned char* c) {
-    c[3] = (i % 256);
-    c[2] = (i - c[3]) / 256 % 256;
-    c[1] = (i - c[3] - c[2]*256) / 256 / 256 % 256;
-    c[0] = (i - c[3] - c[2]*256 -c[1]*256*256) / 256 / 256 / 256 % 256;
-    return 0;
-}
-
-
-int MsgTyper::CharToInt(const unsigned char * c) {
-    int i = 0;
-    i = c[0] * 256 * 256 * 256
-      + c[1] * 256 * 256
-      + c[2] * 256
-      + c[3];
-
-    return i;
-}
-
-
-const MsgTyper::ustring TrackerRequestGenerator::GenerateMessage(Peer& peer) {
-    std::string event;
-    switch(items_[1]) {
-        case 1:
-            event = "started";
-            break;
-        case 2:
-            event = "completed";
-            break;
-        case 3:
-            event = "stopped";
-            break;
-        default:
-            break;
-    }
-
-    std::string tracker_name;
-    std::ostringstream ostr;
-    ostr << "GET /announce?info_hash="<< peer.GetInfoHash() 
-        << "&peer_id=" << peer.GetPeerId()
-        << "&port=" << items_[0]
-        << "&uploaded=" << peer.scounter.uploads
-        << "&downloaded=" << peer.scounter.downloads
-        << "$left=" << (peer.scounter.file_total_size - peer.scounter.downloads)
-        << "&event=" << event
-        //<< "&key=" << key
-        << "&compact=1"
-        //<< "&numwant=" << num_want
-        << " HTTP/1.0\r\n"
-        << "Host: " << tracker_name_ << "\r\n"
-        << "User-Agent: Bittorent\r\b"
-        << "Accept:*/*\r\n"
-        << "Accept-Encoding: gzip\r\n"
-        << "Connection: closed\r\n\r\n";
-#ifdef DEBUG
-    std::out << msg.str() << std::endl;
-#endif
-    return msg.str();
-}
-
-
-TrackerRequestGenerator& TrackerRequestGenerator::Set(std::vector<int>& item) {
-    assert( item.size() > 1);
-    items_ = item;
-    return *this;
-}
-
-
-void TrackerRequestGenerator::Set(const std::string& tname) {
-    tracker_name_ = tname;
-}
-
-
-const MsgTyper::ustring HandShakeMsg::GenerateMessage(Peer &peer)
-{
-    std::string name = "BitTorrent protocol";
-    unsigned char pstrlen = 19;
-    msg << pstrlen;
-    msg << reinterpret_cast<const unsigned char*>(name.c_str());
-    for(int i = 0; i < 8; ++i) msg.put((unsigned char)'0x00');
-           msg << peer.info_hash.c_str();
-           msg << peer.peer_id.c_str();
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
-}
-
-
-const MsgTyper::ustring KeepAliveMsg::GenerateMessage(Peer& peer)
-{
-    unsigned char zero = (unsigned char)'0x00';
-    msg << zero
-        << zero
-        << zero
-        << zero;
-    return ustring(msg.str());
-}
-
-
-const MsgTyper::ustring ChokedMsg::GenerateMessage(Peer& peer)
-{
+const std::string MsgTyper::CreateChokedMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
     IntToChar(1, msg );
-    msg << (unsigned char)('0x00');
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    msg << (unsigned char)(0);
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring UnChockdMsg::GenerateMessage(Peer& peer)
-{
+const std::string MsgTyper::CreateUnchokedMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
     IntToChar(1, msg );
-    msg << (unsigned char)'0x01';
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    msg << UCHAR(1);
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring InterestedMsg::GenerateMessage(Peer& peer)
-{
+const std::string MsgTyper::CreateInterestedMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
     IntToChar(1, msg );
-    msg << (unsigned char)'0x02';
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    msg << UCHAR(2);
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring UnInterestedMsg::GenerateMessage(Peer& peer)
-{
+const std::string MsgTyper::CreateUninterestedMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
     IntToChar(1, msg );
-    msg << (unsigned char)'0x03';
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    msg << UCHAR(3);
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-HaveMsg& HaveMsg::Set(std::vector<int> &item)
-{
-    if( item.empty()) throw std::logic_error("Have message must have piece index.");
-    index_ = item[0];
-    return *this;
-}
-
-
-const MsgTyper::ustring HaveMsg::GenerateMessage(Peer& peer)
-{
+const std::string MsgTyper::CreateHaveMsg(Peer& myself, Peer& peer, size_t index) {
+    uostringstream msg;
     IntToChar(5, msg );
-    msg << (unsigned char)'0x04';
-    IntToChar(index_, msg );
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    msg << UCHAR(4);
+    IntToChar(index, msg );
+
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring BitfieldMsg::GenerateMessage(Peer& peer)
-{
-    if( peer.bitmap.Size() == 0)
-    {
-        return ustring();
-    }
-    IntToChar(1 + ((peer.bitmap.Size()%8 == 0)? (peer.bitmap.Size() /8): (peer.bitmap.Size()/8 +1)), 
+const std::string MsgTyper::CreateBitfieldMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
+    IntToChar(1 + ((myself.bitmap.Size()%8 == 0)? (myself.bitmap.Size() /8): (myself.bitmap.Size()/8 +1)),
                 msg );
-    msg << (unsigned char)'0x05';
-    ConvertBitmap(peer, msg);
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
-}
-
-void BitfieldMsg::ConvertBitmap(Peer &peer, uostringstream &os)
-{
-    BitMap& bitmap = peer.bitmap;
+    msg << UCHAR(5);
+    BitMap& bitmap = myself.bitmap;
     int charlen = (bitmap.Size() % 8 == 0) ? (bitmap.Size() / 8): (bitmap.Size() / 8 + 1);
     unsigned char* bits = new unsigned char[charlen];
 
@@ -322,194 +122,306 @@ void BitfieldMsg::ConvertBitmap(Peer &peer, uostringstream &os)
         bits[i / 8] |=  1 << (i % 8);
     }
     ustring bitstring (bits, charlen);
-    os << bitstring;
+    msg << bitstring;
     delete [] bits;
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-// TODO 这两消息有点没理清？？ Cancel和request到底要修改那些peer的request queue和requested queue；
-const MsgTyper::ustring RequestMsg::GenerateMessage(Peer& peer)
-{
-    if( peer.request_queue.empty()) return ustring();
-    IntToChar(1 + 12, msg );
-    msg << (unsigned char)'0x06';
+const std::string MsgTyper::CreatePieceMsg(Peer& myself, Peer& peer) {
+    // TODO
+    uostringstream msg;
+    IntToChar(1 + 12, msg);
+    msg << UCHAR(7);
 
-    RequestPiece reqp = peer.request_queue.front();
-
-    IntToChar(reqp.index, msg);
-    IntToChar(reqp.slice_offset, msg);
-    IntToChar(reqp.length, msg);
-
-    peer.request_queue.pop();
-
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-RequestMsg& RequestMsg::Set(std::vector<int>& item) {
-    if( item.empty() )
-    {
-        if( item.empty()) throw std::logic_error("request message must have piece index.");
-    }
+const std::string MsgTyper::CreateCancelMsg(Peer& myself, Peer& peer) {
+    // TODO
+    uostringstream msg;
+    IntToChar(1 + 12, msg);
+    msg << UCHAR(6); // message type tag
+    // TODO
+
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring PieceMsg::GenerateMessage(Peer& peer)
-{
-    IntToChar(1 + peer.bitmap.Size(), msg );
-    msg << (unsigned char)'0x07';
+const std::string MsgTyper::CreatePortMsg(Peer& myself, Peer& peer) {
+    uostringstream msg;
+    IntToChar(1 + 12, msg);
+    msg << UCHAR(6);
+    // TODO
 
-#ifdef SINGLE_MESSAGE
-    peer.write_buffer.clear();
-    peer.write_buffer = msg.str();
-#endif
-    return ustring(msg.str());
-}
-
-const MsgTyper::ustring CancelMsg::GenerateMessage(Peer& peer)
-{
-    IntToChar(1 + 12, msg );
-    msg << (unsigned char)'0x08';
-}
-
-CancelMsg& CancelMsg::Set(std::vector<int>& item)
-{
-
-    return *this;
+    return bitusk::ConvertUstringToString(msg.str());
 }
 
 
-const MsgTyper::ustring PortMsg::GenerateMessage(Peer& peer)
-{
-    // this feature was used lessly.
+
+
+
+
+void MsgTyper::InitMsgProcessors() {
+    processors[MsgNum::kHandShake] = ProcessHandShakeMsg;
+    processors[MsgNum::kKeepAlive] = ProcessKeepAliveMsg;
+    processors[MsgNum::kChoke] = ProcessChokeMsg;
+    processors[MsgNum::kUnchoke] = ProcessUnchokeMsg;
+    processors[MsgNum::kInterested] = ProcessInterestedMsg;
+    processors[MsgNum::kUninterested] = ProcessUninterestedMsg;
+    processors[MsgNum::kHave] = ProcessHaveMsg;
+    processors[MsgNum::kBitfield] = ProcessBitfieldMsg;
+    processors[MsgNum::kRequest] = ProcessRequestMsg;
+    processors[MsgNum::kPiece] = ProcessPieceMsg;
+    processors[MsgNum::kCancel] = ProcessCancelMsg;
+    processors[MsgNum::kPort] = ProcessPortMsg;
 }
 
-void ProcessHandShakeMsg::ParseMessage(Peer &peer, const ustring &msg)
-{
-    if( msg[4] == 0 ){
-        return;
-    }
 
-    peer.state = PeerState::kHandShaked;
-    return;
-}
+std::vector<MsgTyper::ustring> MsgTyper::SplitMsg(Peer& myself, Peer& peer) {
 
+    ustring msg (reinterpret_cast<unsigned char*>(peer.read_buffer));
+    std::memset(peer.read_buffer, 0, Peer::MaxBufferSize);
+    ustring words;
+    words += UCHAR(19);
+    words += reinterpret_cast<const unsigned char*>("BitTorrent protocol");
 
-void ProcessKeepAliveMsg::ParseMessage(Peer& peer, const ustring &msg)
-{
-    // retiming
-}
+    std::vector<ustring> msgs;
 
-
-void ProcessChokeMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    // myself choked or peer choked???
-    peer.peer_choking = true;
-    // 清理 peer的相关数据
-}
-
-/*
-void ProcessUnchokeMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    // TODO the same with above
-    if(peer.state != PeerState::kClosing &&
-        peer.peer_choking)
-    {
-        peer.choking = false;
-        if( peer.am_interested)
-        {
-            CreateReqSliceMsg(peer);
-        } 
-        else 
-        {
-            peer.am_interested = is_interested(my_self, peer);
-            if( !peer.am_interested)
-            {
-                CreateReqSliceMsg(peer);
-            }
-            else
-            {
-                // some logger;
-            }
-
+    int len = msg.size();
+    for(int i = 0; i < len; ) {
+        // 握手、chocke、have等消息的长度是固定的
+        if( i+68<=len && msg.substr(i, 20) == words ) {
+            msgs.push_back(msg.substr(i,68));
+            i += 68;
         }
+        else if( i+4 <=len && msg.substr(i, 4) == keep_alive ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 4;
+        }
+        else if( i+5 <=len && msg.substr(i, 5) == chocke  ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 5;
+        }
+        else if( i+5 <=len && msg.substr(i, 5) == unchocke ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 5;
+        }
+        else if( i+5 <=len && msg.substr(i, 5) == interested ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 5;
+        }
+        else if( i+5 <=len && msg.substr(i, 5) == uninterested ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 5;
+        }
+        else if( i+9 <=len && msg.substr(i, 5) == have ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 9;
+        }
+        else if( i+17<=len && msg.substr(i, 5) == request ) {
+            msgs.push_back(msg.substr(i, 5));
+            i += 17;
+        }
+        else if( i+17<=len && msg.substr(i, 5) == cancel ) {
+            msgs.push_back(msg.substr(i, 17));
+            i += 17;
+        }
+        else if( i+7 <=len && msg.substr(i, 5) == port ) {
+            msgs.push_back(msg.substr(i, 7));
+            i += 7;
+        }
+        // bitfield消息的长度是变化的
+        else if( i+5 <=len && msg[i+4]== UCHAR(5) )  {
+            size_t length = CharToInt(msg.substr(i, 4));
+            if( i+4+length <= len ) {
+                msgs.push_back(msg.substr(i, 4 + length));
+                i += 4 + length;
+            }
+            else {
+                return msgs;
+            }
+        }
+        else if( i+5 <=len && msg[i+4]==7 )  {
+            size_t length = CharToInt(msg.substr(i, 4));
+            if( i+4+length <= len ) {
+                msgs.push_back(msg.substr(i , 4 + length));
+                i += 4+length;
+            }
+            else {
+                return msgs;
+            }
+        }
+        else {
+            // 处理未知类型的消息
+            if(i+4 <= len) {
+                size_t length = CharToInt(msg.substr(i,4));
+                if(i+4+length <= len)  {
+                    i += 4+length;
+                    msgs.push_back(msg.substr(i, 4+ length));
+                    continue;
+                }
+                else {
+                    return msgs;
+                }
+            }
+            return msgs;
+        }
+    }
+    return msgs;
+}
 
-        // timing or counting TODO
+
+bool MsgTyper::ParseMsg_map(Peer& myself, Peer& peer) {
+    if( processors.empty() ) {
+        InitMsgProcessors();
+    }
+    std::vector<ustring> msgs( std::move( SplitMsg(myself, peer) ) );
+
+    std::map<int, boost::function<bool(Peer&,Peer&,ustring)>> processor;
+    for( auto& msg : msgs ) {
+        if( processors.find(static_cast<int>(msg[4])) != processors.end() ) {
+            processors[static_cast<int>(msg[4])](myself, peer, msg);
+        }
     }
 }
 
 
-void ProcessInterestedMsg:ParseMessage(Peer& peer, const ustring& msg)
-{
-    // TODO
-    // the same question with above
-}
 
-void ProcessUninterestedMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    // TODO
-}
+bool MsgTyper::ParseMsg(Peer& myself, Peer& peer) {
+    ustring words;
+    words += UCHAR(19);
+    words += reinterpret_cast<const unsigned char*>("BitTorrent protocol");
 
+    std::vector<ustring> msgs( std::move( SplitMsg(myself, peer) ) );
 
-void ProcessHaveMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    int len = CharToInt(msg.c_str());
-    ustring context (msg.cbegin()+5, msg.cbegin() + 5 + len);
-    // convert have msg to what i need;
-    // 这儿应该和那个piece有关需要更改bitmap
+    for( auto& msg: msgs) {
+        if( words == msg.substr(0, 20)) {
+            ProcessHandShakeMsg(myself, peer, msg);
 
-}
+        } else if( msg[ 4 ] ==  MsgNum::kChoke) {
+            ProcessChokeMsg(myself, peer, msg);
 
+        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
+            ProcessUnchokeMsg(myself, peer, msg);
 
-void ProcessCancelMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    // TODO
-}
+        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
+            ProcessUnchokeMsg(myself, peer, msg);
 
+        } else if( msg[ 4 ] == MsgNum::kInterested ) {
+            ProcessInterestedMsg(myself, peer, msg);
 
-void ProcessBitfieldMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    int len = CharToInt(msg.c_str()) -1;
-    ustring context (msg.cbegin()+5, msg.cbegin() + 5 + len);
-    std::vector<bool> tmp_bits;
-    const unsigned char* bits = msg.c_str();
-    assert(len * 8 >= peer.bitmap.Size());
-    for( int i = 0; i < peer.bitmap.Size(); ++i )
-    {
-        bool bit = bits[i / 8] & (1<< (i%8));
-        tmp_bits.push_back(bit);
-    }
+        } else if( msg[ 4 ] == MsgNum::kUninterested ) {
+            ProcessUninterestedMsg(myself, peer, msg);
 
-    // 给哪个peer
+        } else if( msg[  4 ] == MsgNum::kHave ) {
+            ProcessHaveMsg(myself, peer, msg);
 
-}
+        } else if( msg[ 4 ] == MsgNum::kBitfield ) {
+            ProcessBitfieldMsg(myself, peer, msg);
 
+        } else if( msg[ 4 ] == MsgNum::kRequest ) {
+            ProcessRequestMsg(myself, peer, msg);
 
-void ProcessRequestMsg::ParseMessage(Peer& peer, const ustring& msg)
-{
-    int index = CharToInt(msg.c_str() + 5);
-    int offset = CharToInt(msg.c_str() + 5 + 4);
-    int length = CharToInt(msg.c_str() + 5 + 4 + 4);
+        } else if( msg[ 4 ] == MsgNum::kPiece ) {
+            ProcessPieceMsg(myself, peer, msg);
 
-    peer.requested_queue.emplace(index,offset,length);
+        } else if( msg[ 4 ] == MsgNum::kCancel ) {
+            ProcessCancelMsg(myself, peer, msg);
 
+        } else if( msg[ 4 ] == MsgNum::kPort ) {
+            ProcessPieceMsg(myself, peer, msg);
+        } else {
+            continue;
+        }
+    } // end for
+
+    return 0;
 }
 
 
-void ProcessPieceMsg::ParseMessage(Peer& peer, const ustring& msg)
-{    
-    int len = CharToInt(msg.c_str());
-    ustring context (msg.cbegin()+5, msg.cbegin() + 5 + len);
- 
-    // 放入datacache中
+
+bool MsgTyper::ProcessHandShakeMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
 }
 
 
-*/
+bool MsgTyper::ProcessKeepAliveMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessChokeMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessUnchokeMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessInterestedMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessUninterestedMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessHaveMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessBitfieldMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessRequestMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessPieceMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessCancelMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+bool MsgTyper::ProcessPortMsg(Peer& myself, Peer& peer, const ustring& str) {
+
+    return true;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

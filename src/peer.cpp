@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/io_context.hpp>
 #include <mutex>
 #include <boost/smart_ptr/make_shared_array.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
@@ -23,13 +24,13 @@ std::mutex PeersManager::m_mtx;
 #endif //
 
 
-PeersManager* PeersManager::GetInstance() {
+PeersManager* PeersManager::InitInstance(boost::asio::io_context& ioc) {
     PeersManager* tmp = m_instance.load(std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_acquire);
     if( nullptr ==  tmp ) {
         std::lock_guard<std::mutex> lok(m_mtx);
         if( nullptr == tmp ) {
-            tmp = new PeersManager();
+            tmp = new PeersManager(ioc);
             std::atomic_thread_fence(std::memory_order_acquire);
             m_instance.store(tmp, std::memory_order_relaxed );
         }
@@ -39,10 +40,15 @@ PeersManager* PeersManager::GetInstance() {
 }
 
 
+PeersManager* PeersManager::GetInstance() {
+    return m_instance.load(std::memory_order_relaxed);
+}
+
+
 
 bool Initial(Peer &myself, Peer& peer) {
     peer.write_buffer_str.clear();
-    peer.write_buffer_str = MsgTyper::CreateHandShakeMsg(myself, peer);
+    peer.write_buffer_str = MsgTyper::CreateHandShakedMsg(myself, peer);
     peer.processor = HalfShaked;
 }
 
@@ -50,7 +56,7 @@ bool Initial(Peer &myself, Peer& peer) {
 bool HalfShaked(Peer &myself, Peer &peer) {
     std::string msg (peer.read_buffer);
     // parse recv shake msg
-    if (ParseHandShakeMsg(myself, peer)) {
+    if (MsgTyper::ParseMsg(myself, peer)) {
         peer.processor = HandShaked;
     }
 }
@@ -63,7 +69,7 @@ bool HandShaked(Peer &myself, Peer &peer) {
 
 
 bool SendBitfield(Peer &myself, Peer &peer) {
-    if( ParseBitfieldMsg(myself, peer)) {
+    if( MsgTyper::ParseMsg(myself, peer)) {
         peer.processor = Data;
         peer.data_exchange_processor = Data01;
     }
@@ -71,7 +77,7 @@ bool SendBitfield(Peer &myself, Peer &peer) {
 
 
 bool Data(Peer &myself, Peer &peer) {
-    peer->data_exchange_processor(myself, peer);
+    peer.data_exchange_processor(myself, peer);
     peer.data_exchange_processor = Data01;
 }
 

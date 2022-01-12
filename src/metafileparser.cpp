@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <iterator>
 #include <stack>
 #include <fstream>
@@ -41,18 +42,21 @@ std::string MetafileObject::CaculateSha1ToString(const std::string& str) {
 const std::basic_string<unsigned char> MetafileObject::CaculateSha1(const std::string& str)
 {
     sha1 sha;
-    sha.process_bytes(str.c_str(), str.size());
     unsigned int digest[5];
+    sha.process_bytes(str.c_str(), str.size());
     sha.get_digest(digest);
 
     std::basic_ostringstream<unsigned char> buf;
     unsigned char* itr = reinterpret_cast<unsigned char*>(&digest[0]);
-    for( int i = 0; i < 20; ++i )
+    for( size_t i = 0; i < 20; ++i)
     {
-      buf.put(itr[i]);
+      buf << itr[i];
+      std::cout << " << "<< i << ">> " << itr[i] << std::endl;
     }
 
-    return buf.str();
+    std::cout << " size of " << std::basic_string<unsigned char>(buf.str()).size();
+
+    return std::basic_string<unsigned char>(buf.str());
 }
 
 

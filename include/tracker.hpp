@@ -242,7 +242,10 @@ public:
             return;
         }
 
+        PeersManager* pm = PeersManager::GetInstance();
+
         auto peers = GetPeersFromHttpResponse(recv_msg);
+        pm->AddPeers(peers);
         size_t min_interval = GetMinIntervalFromHttpResponse(recv_msg);
 #ifdef DEBUG
         std::cout << "time min interval : " << min_interval << std::endl;

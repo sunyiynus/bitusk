@@ -1,6 +1,7 @@
 #ifndef BITUSK_SRC_PEER_H__
 #define BITUSK_SRC_PEER_H__
 
+#include <boost/asio/io_context.hpp>
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -89,7 +90,7 @@ public:
 
     boost::function<bool(Peer& myself, Peer& peer)> processor;
     boost::function<bool(Peer& myself, Peer& peer)> data_exchange_processor;
-    boost::shared_ptr<SocketPtr> socket;
+    SocketPtr socket;
 
     int state;  // 有可能弃用了。
     bool am_choking;
@@ -198,7 +199,13 @@ public:
 
 public:
     Peer& GetMyself();
-    std::vector<boost::shared_ptr<Peer>>& GetPeers();
+    std::vector<boost::shared_ptr<Peer>> GetPeers();
+
+    bool AddPeers(const std::vector<ip::tcp::endpoint>& eps) {
+        for( const auto& ep: eps) {
+            AddPeer(ep);
+        }
+    }
 
     bool AddPeer(const ip::tcp::endpoint& ep) {
         ConnectPeer(ep);
@@ -222,7 +229,9 @@ public:
             // write to some;
         }
         peers_.push_back(peerptr);
-        DoWrite(peerptr);
+        std::cout << "Connectting peer : " << peerptr->ep.address().to_string() << "Successful." <<std::endl;
+        
+        //DoWrite(peerptr);
     }
 
     void DoWrite(Peer::Ptr peerptr) {
@@ -264,6 +273,7 @@ public:
 private:
 
     PeersManager() = delete;
+    PeersManager(io_context& ioc): ioc_(ioc) {}
     std::list<boost::shared_ptr<Peer>> peers_;
     std::queue<boost::shared_ptr<Peer>> unready_peers_;
     Peer myself_;
@@ -278,8 +288,8 @@ inline Peer& PeersManager::GetMyself() {
 }
 
 
-inline std::vector<boost::shared_ptr<Peer>>& PeersManager::GetPeers() {
-    return peers_;
+inline std::vector<boost::shared_ptr<Peer>> PeersManager::GetPeers() {
+    return std::vector<boost::shared_ptr<Peer>>(peers_.begin(), peers_.end());
 }
 
 

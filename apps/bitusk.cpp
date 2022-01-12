@@ -45,7 +45,9 @@ bool InitializeEnv(const std::string& metafilename) {
 
     // initialize myself peer struct with
     // info_hash peer_id file_total_size
+    //std::cout << metafile->getString("info") << std::endl;
     myself.info_hash = bitusk::MetafileObject::CaculateSha1(metafile->getString("info"));
+    std::cout << "info Hash ok !" << std::endl;
     myself.peer_id = bitusk::StringToUstring(metafile->getString("peer id"));
 
     std::cout << "Setting Peers info hash and peer id of myself " << std::endl;
@@ -58,6 +60,16 @@ bool InitializeEnv(const std::string& metafilename) {
     }
     myself.scounter.file_total_size = total;
     std::cout << "setting file total size of bittorrent..." <<total <<    std::endl;
+
+    // TODO
+    // initial datacache
+
+    // initial file manager
+
+    // initial peer manager
+
+
+    
     return true;
 }
 

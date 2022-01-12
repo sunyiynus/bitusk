@@ -30,6 +30,7 @@ TEST_CASE("Peer Initialize...", "[Peer]")
 
 
 TEST_CASE("PeersManager::GetInstance() testing", "[class PeersManager]") {
+    
     PeersManager* pm = PeersManager::GetInstance();
     REQUIRE( pm != nullptr);
 }

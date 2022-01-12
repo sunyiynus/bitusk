@@ -16,7 +16,7 @@ namespace MsgNum {
     constexpr int kChoke = 0;
     constexpr int kUnchoke = 1;
     constexpr int kInterested = 2;
-    constexpr int kUnInterested = 3;
+    constexpr int kUninterested = 3;
     constexpr int kHave = 4;
     constexpr int kBitfield = 5;
     constexpr int kRequest = 6;
@@ -31,226 +31,98 @@ public:
     typedef std::basic_stringstream<unsigned char> ustringstream;
     typedef std::basic_istringstream<unsigned char> uistringstream;
     typedef std::basic_ostringstream<unsigned char> uostringstream;
+
+    static ustring keep_alive    ;
+    static ustring chocke        ;
+    static ustring unchocke      ;
+    static ustring interested    ;
+    static ustring uninterested  ;
+    static ustring have          ;
+    static ustring request       ;
+    static ustring cancel        ;
+    static ustring port          ;
+    static std::map<int, boost::function<bool(Peer&,Peer&, const ustring&)>> processors;
+
+
     static int IntToChar(int i, uostringstream& os);
     static int IntToChar(int i, unsigned char* c);
     static int CharToInt(const unsigned char* c);
+    static long long CharToInt(const ustring& str);
     static const std::string ConvertUstringToString(const std::basic_string<unsigned char>& src);
 
+    static void InitMsgProcessors();
+
+    static const std::string CreateMsg(Peer& myself, Peer& peer);
     static const std::string CreateHandShakedMsg(Peer& myself, Peer& peer);
     static const std::string CreateKeepAliveMsg(Peer& myself, Peer& peer);
     static const std::string CreateChokedMsg(Peer& myself, Peer& peer);
     static const std::string CreateUnchokedMsg(Peer& myself, Peer& peer);
     static const std::string CreateInterestedMsg(Peer& myself, Peer& peer);
     static const std::string CreateUninterestedMsg(Peer& myself, Peer& peer);
-    static const std::string CreateHaveMsg(Peer& myself, Peer& peer);
+    static const std::string CreateHaveMsg(Peer& myself, Peer& peer, size_t index);
+    static const std::string CreateBitfieldMsg(Peer& myself, Peer& peer);
+    static const std::string CreatePieceMsg(Peer& myself, Peer& peer);
+    static const std::string CreateCancelMsg(Peer& myself, Peer& peer);
+    static const std::string CreatePortMsg(Peer& myself, Peer& peer);
+
+    static std::vector<ustring> SplitMsg(Peer& myself, Peer& peer);
+
+    static bool ParseMsg_map(Peer& myself, Peer& peer);
+    static bool ParseMsg(Peer& myself, Peer& peer);
+    static bool ProcessHandShakeMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessKeepAliveMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessChokeMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessUnchokeMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessInterestedMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessUninterestedMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessHaveMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessBitfieldMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessRequestMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessPieceMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessCancelMsg(Peer& myself, Peer& peer, const ustring& str);
+    static bool ProcessPortMsg(Peer& myself, Peer& peer, const ustring& str);
 
 };
 
 
-class AbsMessageGenerator: public MsgTyper{
-public:
-    virtual const ustring GenerateMessage(Peer& peer) {}
-    virtual AbsMessageGenerator& Set(std::vector<int>& item){}
-protected:
-    uostringstream msg;
-};
-
-class AbsMessageParser : public MsgTyper{
-public:
-    static bool IsCompleteMsg(const ustring& buff, int ok_size){}
-    virtual void ParseMessage(Peer& peer, const ustring& msg){}
-};
-
-class AbsMsgFactory{
-public:
-    virtual AbsMessageGenerator* GetMsgGenerator(Peer& peer, int msg_type){}
-    virtual AbsMessageParser* GetMsgParser(Peer& peer){}
-};
+inline int MsgTyper::IntToChar(int i, MsgTyper::uostringstream& os) {
+    unsigned char c [4] = {0};
+    IntToChar(i, c);
+    os << c[0] << c[1] << c[2] << c[3];
+    return 0;
+}
 
 
-class MsgGeneratorFactory: public AbsMsgFactory{
-public:
-    virtual AbsMessageGenerator* GetMsgGenerator(Peer& peer, int msg_type) override;                                                                                                                                                                  
-    
-};
+inline int MsgTyper::IntToChar(int i, unsigned char* c) {
+    c[3] = (i % 256);
+    c[2] = (i - c[3]) / 256 % 256;
+    c[1] = (i - c[3] - c[2]*256) / 256 / 256 % 256;
+    c[0] = (i - c[3] - c[2]*256 -c[1]*256*256) / 256 / 256 / 256 % 256;
+    return 0;
+}
 
 
-class MsgParserFactory: public AbsMsgFactory{
-public:
-    virtual AbsMessageParser* GetMsgParser(Peer& peer) override;
-};
+inline int MsgTyper::CharToInt(const unsigned char * c) {
+    int i = 0;
+    i = c[0] * 256 * 256 * 256
+      + c[1] * 256 * 256
+      + c[2] * 256
+      + c[3];
 
-// 小类太多，没有任何意义？？？
-// 假设的情况：以后需要添加新的msg类型。
-
-// message handle of trakcers
-
-class TrackerRequestGenerator: public AbsMessageGenerator{
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-    virtual TrackerRequestGenerator& Set(std::vector<int>& item) override;
-    void Set(const std::string& tname);
-protected:
-    uostringstream msg;
-    std::vector<int> items_;
-    std::string tracker_name_;
-};
+    return i;
+}
 
 
-class TrackerMsgFactory: public AbsMsgFactory {
-public:
-    virtual AbsMessageGenerator* GetMsgGenerator(Peer& peer, int msg_type){}
-    virtual AbsMessageParser* GetMsgParser(Peer& peer){}
-};
+inline long long MsgTyper::CharToInt(const ustring& str) {
+    if( str.size() < 4 ) return 0;
+    long long i = 0;
+    i = str[0] * 256 * 256 * 256
+      + str[1] * 256 * 256
+      + str[2] * 256
+      + str[3];
 
-// First Party of this mudel
-// Peer data exchange needed message generator
-
-class HandShakeMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-class KeepAliveMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-class ChokedMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-class UnChockdMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-class InterestedMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-class UnInterestedMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-
-class HaveMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-    virtual HaveMsg& Set(std::vector<int>& item) override;
-private:
-    int index_;
-};
-
-
-class BitfieldMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-    void ConvertBitmap(Peer& peer, uostringstream& os);
-};
-
-
-class RequestMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-    virtual RequestMsg& Set(std::vector<int>& item) override;
-    
-};
-
-
-class PieceMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-class CancelMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-    virtual CancelMsg& Set(std::vector<int>& item) override;
-};
-
-
-class PortMsg: public AbsMessageGenerator {
-public:
-    virtual const ustring GenerateMessage(Peer& peer) override;
-};
-
-
-// Second Part of Message Module
-class ProcessHandShakeMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessKeepAliveMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessChokeMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-/*
-class ProcessUnchokeMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessInterestedMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessUninterestedMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessHaveMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessCancelMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessBitfieldMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessRequestMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-
-
-class ProcessPieceMsg: public AbsMessageParser {
-public:
-    virtual void ParseMessage(Peer& peer, const ustring& msg) override;
-};
-*/
+    return i;
+}
 
 
 #endif // BITUSK_SRC_MESSAGE_HPP__

@@ -349,6 +349,9 @@ public:
     }
 
 
+public:
+    // for singleton design;
+    
 
 };
 
