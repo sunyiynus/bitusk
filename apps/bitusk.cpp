@@ -14,6 +14,8 @@
 #include "peer.hpp"
 #include "tracker.hpp"
 #include "datacache.hpp"
+#include "log.hpp"
+#include "basic.hpp"
 
 
 boost::asio::io_context ioserver;
@@ -33,13 +35,19 @@ std::vector<std::string> WrapArgv(int argc, char* argv[]) {
 
 
 bool InitializeEnv(const std::string& metafilename) {
+    //init log
+    Logger& logger = Logger::Instance();
+    logger.Init(&std::cout);
+    LOGGER(loggers);
 
     // read bittorrent file to get nessary info
     metafile = bitusk::MetafileObject::readMetaStrFromFile(metafilename);
     std::cout << "read metafile from file : " << metafilename << std::endl;
 
     // get singleton PeersManager
-    PeersManager* pm = PeersManager::GetInstance();
+    
+    PeersManager* pm = PeersManager::InitInstance(ioserver);
+    assert(pm != nullptr);
     Peer& myself = pm->GetMyself();
     std::cout << "get singleton PeersManager and setting some variable .. " << std::endl;
 
@@ -59,12 +67,17 @@ bool InitializeEnv(const std::string& metafilename) {
         total += f.length; 
     }
     myself.scounter.file_total_size = total;
+    loggers.Debug() << "fiel total size : " << total << "\n";
     std::cout << "setting file total size of bittorrent..." <<total <<    std::endl;
+
+
+
+    // initial file manager
 
     // TODO
     // initial datacache
 
-    // initial file manager
+
 
     // initial peer manager
 
@@ -83,11 +96,30 @@ int main(int argc, char* argv[]) {
     if( !InitializeEnv(args[0])) {
         std::cout << "Something wrong, but Im not define the error now.." << std::endl;
     }
+    LOGGER(logger);
+    PeersManager* pmanager = PeersManager::Instance();
+    assert( pmanager != nullptr );
 
+#ifdef DEBUG_MACRO
+    logger.Debug() << "Begin to debug peer exchange....";
+    assert( args.size() > 1);
+    if( args[1] == "-s") {
+        logger.Debug() << "Im will be a server";
+        pmanager->SetAcceptor();
+        pmanager->StartRecvPeerConnection();
+    } else if( args[1] == "-c") {
+        logger.Debug() << "Im will be a client";
+        ip::tcp::endpoint ep( ip::address::from_string("127.0.0.1"), 6969);
+        pmanager->AddPeer(ep);
+    }
+
+#else
     auto announce = metafile->getList("announce-list");
 
     TrackersManager::ptr tmanager = TrackersManager::Start(announce, ioserver);
-
+    pmanager->StartRecvPeerConnection();
+    logger.Debug() << "Starting recv peer connection..";
+#endif
 
     ioserver.run();
 }
