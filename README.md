@@ -19,10 +19,12 @@ Progress:
 + ~~metafile parser~~
 + tracker connecting 60%
     >TODO: support UDP server
-+ peer data exchange
++ peer data exchange 30%
 + datacache 80%
     >TODO: support other method to write to disk
 + message generate and parse
++ logger 100%
++ signal control 0%
 
 
 [开发笔记:代码细节与结构上的考量](https://github.com/sunyiynus/bitusk/blob/master/docs/%E8%AE%BE%E8%AE%A1%E6%96%87%E6%A1%A3.md)
