@@ -7,6 +7,7 @@
 #include "peer.hpp"
 #include "message.hpp"
 #include "bcode.hpp"
+#include "basic.hpp"
 
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/io_context.hpp>
@@ -42,8 +43,6 @@
 #include <mutex>
 
 
-#define  DEBUG
-
 using namespace bitusk;
 using namespace boost::asio;
 typedef boost::system::error_code ErrorCodeType;
@@ -51,13 +50,6 @@ typedef boost::shared_ptr<boost::asio::ip::tcp::socket> SocketPtr;
 typedef boost::shared_ptr<boost::asio::ip::udp::socket> uSocketPtr;
 typedef std::map<std::string,std::string> dictionary;
 
-
-#define MEM_FN(x)       boost::bind(&SelfType::x, shared_from_this())
-#define MEM_FN1(x,y)    boost::bind(&SelfType::x, shared_from_this(), y)
-#define MEM_FN2(x,y,z)  boost::bind(&SelfType::x, shared_from_this(), y,z)
-//#define MEM_FN2(x,y,z)  boost::bind(&SelfType::x, this, y,z)
-#define MEM_FN3(x,y,z,m)  boost::bind(&SelfType::x, shared_from_this(), y, z, m)
-#define MEM_FN4(x,y,z,m,p)  boost::bind(&SelfType::x, shared_from_this(), y, z, m, p)
 
 
 constexpr size_t MAXBUFFERLEN = 1024 * 10;
@@ -242,7 +234,8 @@ public:
             return;
         }
 
-        PeersManager* pm = PeersManager::GetInstance();
+        PeersManager* pm = PeersManager::Instance();
+        assert( pm != nullptr );
 
         auto peers = GetPeersFromHttpResponse(recv_msg);
         pm->AddPeers(peers);
@@ -281,7 +274,7 @@ private:
 
 const std::string GenerateRequestMsg(const std::string& event, 
     const std::string& port, const std::string& tracker_name) {
-    PeersManager* pm = PeersManager::GetInstance();
+    PeersManager* pm = PeersManager::Instance();
     Peer& peer = pm->GetMyself();
     std::ostringstream ostr;
     char encoded_info_hash[100];
@@ -302,7 +295,7 @@ const std::string GenerateRequestMsg(const std::string& event,
     
     ostr << "GET /announce?info_hash="<< encoded_info_hash 
         << "&peer_id=" << encoded_peer_id
-        << "&port=" << port
+        << "&port=" << "6969" // ini define
         << "&uploaded=" << peer.scounter.uploads
         << "&downloaded=" << peer.scounter.downloads
         << "&left=" << (peer.scounter.file_total_size - peer.scounter.downloads)
@@ -363,7 +356,7 @@ const std::vector<ip::tcp::endpoint> GetPeersFromHttpResponse(const std::string&
     }
 #ifdef DEBUG
     for( auto& ep: result ) {
-        std::cout << ep.address().to_string() << std::endl;
+        std::cout << ep.address().to_string() <<": " << ep.port() << std::endl;
     }
 #endif
     return result;

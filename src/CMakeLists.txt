@@ -1,4 +1,4 @@
-find_package(Boost 1.40.0 REQUIRED COMPONENTS system filesystem)
+find_package(Boost 1.40.0 REQUIRED COMPONENTS system thread)
 include_directories(${Boost_INCLUDE_DIR})
 message("boost include : ${Boost_INCLUDE_DIR}")
 message("Link libraries : ${Boost_LIBRARIES}")

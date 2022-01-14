@@ -2,6 +2,7 @@
 #define BITUSK_SRC_PEER_H__
 
 #include <boost/asio/io_context.hpp>
+#include <boost/smart_ptr/make_shared_array.hpp>
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -22,17 +23,11 @@
 
 #include "bitfield.hpp"
 #include "message.hpp"
-
+#include "basic.hpp"
+#include "log.hpp"
 
 using namespace boost::asio;
 
-
-#define MEM_FN(x)       boost::bind(&SelfType::x, shared_from_this())
-#define MEM_FN1(x,y)    boost::bind(&SelfType::x, shared_from_this(), y)
-#define MEM_FN2(x,y,z)  boost::bind(&SelfType::x, shared_from_this(), y,z)
-//#define MEM_FN2(x,y,z)  boost::bind(&SelfType::x, this, y,z)
-#define MEM_FN3(x,y,z,m)  boost::bind(&SelfType::x, shared_from_this(), y, z, m)
-#define MEM_FN4(x,y,z,m,p)  boost::bind(&SelfType::x, shared_from_this(), y, z, m, p)
 
 typedef boost::shared_ptr<ip::tcp::socket> SocketPtr;
 
@@ -86,10 +81,14 @@ public:
     typedef boost::shared_ptr<Peer> Ptr;
 public:
     Peer() = default;
+    Peer(const Peer& p) = default;
+    Peer& operator=(const Peer&) = default;
+
     //Peer()
 
     boost::function<bool(Peer& myself, Peer& peer)> processor;
     boost::function<bool(Peer& myself, Peer& peer)> data_exchange_processor;
+    boost::function<bool(Peer& myself, Peer& peer)> msg_handler;
     SocketPtr socket;
 
     int state;  // 有可能弃用了。
@@ -128,6 +127,7 @@ public:
     bool CheckConnection();
     const std::string GetInfoHash();
     const std::string GetPeerId();
+    const Peer Clone() const;
 };
 
 
@@ -163,6 +163,19 @@ inline const std::string Peer::GetPeerId() {
     return result;
 }
 
+inline const Peer Peer::Clone() const {
+    Peer peer;
+    peer.info_hash = info_hash;
+    peer.am_choking = false;
+    peer.am_interested = false;
+    peer.peer_choking = true;
+    peer.peer_interested = false;
+    peer.scounter.downloads = 0;
+    peer.scounter.file_total_size = scounter.file_total_size;
+    peer.scounter.uploads = 0;
+    return peer;
+}
+
 
 
 bool Initial(Peer& myself, Peer& peer);
@@ -188,7 +201,7 @@ public:
 
 public:
     static PeersManager* InitInstance(io_context& ioc);
-    static PeersManager* GetInstance();
+    static PeersManager* Instance();
 #if ((defined(_MSVC_LANG) && _MSVC_LANG >=  201703L ) || __cplusplus >=  201703L) 
     inline static std::atomic<PeersManager*> m_instance;
     inline static std::mutex m_mtx;
@@ -215,23 +228,33 @@ public:
     // network io
 
     void ConnectPeer(const ip::tcp::endpoint& ep) {
-        Peer::Ptr peer = boost::make_shared<Peer>();
+        LOGGER(logger);
+        if( IsPeerInhere(ep) ) {
+            return;
+        }
+        Peer::Ptr peer = boost::make_shared<Peer>( myself_.Clone());
         peer->ep = ep;
         SocketPtr socket = boost::make_shared<ip::tcp::socket>(ioc_);
         peer->socket = socket;
         peer->processor = Initial;
+        peer->msg_handler = MsgTyper::CreateMsg;
+        logger.Debug() << " this connectting peer " << ep.address().to_string() << ":" <<ep.port();
         socket->async_connect(ep, MEM_FN2(OnConnection, peer, _1));
     }
 
 
     void OnConnection(Peer::Ptr peerptr, const error_code& er) {
+        LOGGER(logger);
         if( er ) {
+            std::cout << peerptr->ep.address().to_string() << " connection failure !" << std::endl;
+            unready_peers_.push_back(peerptr);
+            return ;
             // write to some;
         }
         peers_.push_back(peerptr);
-        std::cout << "Connectting peer : " << peerptr->ep.address().to_string() << "Successful." <<std::endl;
+        logger.Debug() << "Connectting peer : " << peerptr->ep.address().to_string() << "Successful." ;
         
-        //DoWrite(peerptr);
+        DoWrite(peerptr);
     }
 
     void DoWrite(Peer::Ptr peerptr) {
@@ -270,14 +293,75 @@ public:
         peerptr->processor(myself_, *peerptr);
     }
 
+    void StartRecvPeerConnection() {
+        boost::shared_ptr<Peer> ptr = boost::make_shared<Peer>(myself_.Clone());
+        ptr->socket = boost::make_shared<ip::tcp::socket>(ioc_);
+        acceptor->async_accept(*(ptr->socket), MEM_FN2(RecvPeerConnect, ptr, _1));
+    }
+
+
+    void RecvPeerConnect(Peer::Ptr peerptr, const error_code& er) {
+        LOGGER(logger);
+        if( er ) {
+            logger.Error()<< "accepte failure. \n";
+            StartRecvPeerConnection();
+            return;
+        }
+        logger.Debug() << "Accepte " << peerptr->socket->remote_endpoint().address().to_string()
+                        <<":" << peerptr->socket->remote_endpoint().port() << "connection! \n";
+        peerptr->processor = Initial;
+        peerptr->msg_handler = MsgTyper::ParseMsg;
+        peers_.push_back(peerptr);
+        DoRead(peerptr);
+
+        boost::shared_ptr<Peer> ptr = boost::make_shared<Peer>(myself_.Clone());
+        ptr->socket = boost::make_shared<ip::tcp::socket>(ioc_);
+        acceptor->async_accept(*(ptr->socket), MEM_FN2(RecvPeerConnect, ptr, _1));
+
+
+    }
+
+
+public:
+
+    bool IsPeerInhere(const ip::tcp::endpoint& ep) {
+        auto pred = [&](auto& el) { return el->ep == ep;};
+        auto result = std::find_if(peers_.begin(), peers_.end(), pred);
+        if( result != peers_.end() ) {
+            return true;
+        }
+
+        auto result1 = std::find_if( unready_peers_.begin(), unready_peers_.end(), pred);
+        if( result1 != unready_peers_.end() ) {
+            return true;
+        }
+
+        return false;
+    }
+
+#ifdef DEBUG_MACRO
+    void SetAcceptor() {
+        acceptor = boost::make_shared<ip::tcp::acceptor>(ioc_,ip::tcp::endpoint(ip::tcp::v4(), 6969) );
+    }
+#else
+
+#endif
+
 private:
 
     PeersManager() = delete;
-    PeersManager(io_context& ioc): ioc_(ioc) {}
+#ifdef DEBUG_MACRO
+
+    PeersManager(io_context& ioc): ioc_(ioc){}
+#else
+    PeersManager(io_context& ioc): ioc_(ioc), 
+                acceptor(boost::make_shared<ip::tcp::acceptor>((ioc, ip::tcp::endpoint(ip::tcp::v4(), 6969)))) {}
+#endif
     std::list<boost::shared_ptr<Peer>> peers_;
-    std::queue<boost::shared_ptr<Peer>> unready_peers_;
+    std::list<boost::shared_ptr<Peer>> unready_peers_;
     Peer myself_;
     io_context& ioc_;
+    boost::shared_ptr<ip::tcp::acceptor> acceptor;
 };
 
 

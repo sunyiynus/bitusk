@@ -13,7 +13,7 @@
 #include <boost/function.hpp>
 
 #include "message.hpp"
-#include "Utilities.hpp"
+#include "basic.hpp"
 
 #define UCHAR( x ) static_cast<unsigned char>( x )
 
@@ -70,7 +70,7 @@ const std::string MsgTyper::CreateKeepAliveMsg(Peer& myself, Peer& peer) {
 const std::string MsgTyper::CreateChokedMsg(Peer& myself, Peer& peer) {
     uostringstream msg;
     IntToChar(1, msg );
-    msg << (unsigned char)(0);
+    msg << UCHAR(0);
     return bitusk::ConvertUstringToString(msg.str());
 }
 

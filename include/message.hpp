@@ -53,6 +53,7 @@ public:
     static void InitMsgProcessors();
 
     static const std::string CreateMsg(Peer& myself, Peer& peer);
+    static bool CreateMsgf(Peer& myself, Peer& peer);
     static const std::string CreateHandShakedMsg(Peer& myself, Peer& peer);
     static const std::string CreateKeepAliveMsg(Peer& myself, Peer& peer);
     static const std::string CreateChokedMsg(Peer& myself, Peer& peer);

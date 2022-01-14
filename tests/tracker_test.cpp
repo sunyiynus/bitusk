@@ -16,7 +16,7 @@ TEST_CASE("tracker connection testing", "[class TrackersManager]") {
     auto metafile = bitusk::MetafileObject::readMetaStrFromFile("./test-bt.torrent");
     auto files = metafile->getFiles();
     REQUIRE( files.size() == 2);
-    PeersManager* pm = PeersManager::GetInstance();
+    PeersManager* pm = PeersManager::Instance();
     Peer& myself = pm->GetMyself();
     myself.info_hash = bitusk::MetafileObject::CaculateSha1(metafile->getString("info"));
     //myself.info_hash = bitusk::StringToUstring(src);
@@ -33,7 +33,7 @@ TEST_CASE("tracker connection testing", "[class TrackersManager]") {
 }
 
 
-#define INIT_PEERSMANAGER(x) PeersManager* x = PeersManager::GetInstance()
+#define INIT_PEERSMANAGER(x) PeersManager* x = PeersManager::Instance()
 
 TEST_CASE("GenerateRequestMsg test", "[function GenerateRequestMsg]") {
     using namespace bitusk;
@@ -50,7 +50,7 @@ TEST_CASE("GenerateRequestMsg test", "[function GenerateRequestMsg]") {
 
     
 
-    PeersManager* pm = PeersManager::GetInstance();
+    PeersManager* pm = PeersManager::Instance();
     Peer& myself = pm->GetMyself();
     
     myself.scounter.file_total_size = total;

@@ -25,12 +25,15 @@ TEST_CASE("Peer Initialize...", "[Peer]")
     //std::cout <<"peer id .." << metafile->getString("name") << std::endl;
     std::cout << "Info hash " << reinterpret_cast<const char*>(myself.info_hash.c_str()) << std::endl;
     std::cout << "peer id " << reinterpret_cast<const char*>(myself.peer_id.c_str()) << std::endl;
+    SECTION("This peer context...") {
+        
+    }
 }
 
 
 
-TEST_CASE("PeersManager::GetInstance() testing", "[class PeersManager]") {
+TEST_CASE("PeersManager::Instance() testing", "[class PeersManager]") {
     
-    PeersManager* pm = PeersManager::GetInstance();
-    REQUIRE( pm != nullptr);
+    PeersManager* pm = PeersManager::Instance();
+    REQUIRE( pm == nullptr);
 }

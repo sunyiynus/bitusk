@@ -40,20 +40,40 @@ PeersManager* PeersManager::InitInstance(boost::asio::io_context& ioc) {
 }
 
 
-PeersManager* PeersManager::GetInstance() {
+PeersManager* PeersManager::Instance() {
     return m_instance.load(std::memory_order_relaxed);
 }
 
 
 
 bool Initial(Peer &myself, Peer& peer) {
+    // 判断是接受连接的还是主动连接别人
+    // 主动连接别人 生成消息然后发送
+    // 被动连接，解析消息，并生成消息发送出去
     peer.write_buffer_str.clear();
     peer.write_buffer_str = MsgTyper::CreateHandShakedMsg(myself, peer);
     peer.processor = HalfShaked;
 }
 
+bool InitialRead(Peer &myself, Peer& peer) {
+    // 判断是接受连接的还是主动连接别人
+    // 主动连接别人 生成消息然后发送
+    // 被动连接，解析消息，并生成消息发送出去
+    MsgTyper::ParseMsg(myself, peer);
+    peer.processor = HalfShakedRead;
+}
+
 
 bool HalfShaked(Peer &myself, Peer &peer) {
+    std::string msg (peer.read_buffer);
+    // parse recv shake msg
+    if (MsgTyper::ParseMsg(myself, peer)) {
+        peer.processor = HandShaked;
+    }
+}
+
+
+bool HalfShakedRead(Peer &myself, Peer &peer) {
     std::string msg (peer.read_buffer);
     // parse recv shake msg
     if (MsgTyper::ParseMsg(myself, peer)) {
