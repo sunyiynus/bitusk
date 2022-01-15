@@ -107,21 +107,24 @@ int main(int argc, char* argv[]) {
         logger.Debug() << "Im will be a server";
         pmanager->SetAcceptor();
         pmanager->StartRecvPeerConnection();
-    } else if( args[1] == "-c") {
+    } else {
         logger.Debug() << "Im will be a client";
         ip::tcp::endpoint ep( ip::address::from_string("127.0.0.1"), 6969);
         pmanager->AddPeer(ep);
     }
+
+    logger.Debug() << "Destiny is determinist...";
 
 #else
     auto announce = metafile->getList("announce-list");
 
     TrackersManager::ptr tmanager = TrackersManager::Start(announce, ioserver);
     pmanager->StartRecvPeerConnection();
-    logger.Debug() << "Starting recv peer connection..";
 #endif
 
+    logger.Debug() << "Starting recv peer connection..";
     ioserver.run();
+    return 0;
 }
 
 

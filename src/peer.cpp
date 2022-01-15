@@ -39,57 +39,61 @@ PeersManager* PeersManager::InitInstance(boost::asio::io_context& ioc) {
     return tmp;
 }
 
-
 PeersManager* PeersManager::Instance() {
     return m_instance.load(std::memory_order_relaxed);
 }
 
 
+bool IOcall(Peer &myself, Peer& peer){
+    return peer.msg_handler(myself,peer);
+}
+
+/*
 
 bool Initial(Peer &myself, Peer& peer) {
     // 判断是接受连接的还是主动连接别人
     // 主动连接别人 生成消息然后发送
     // 被动连接，解析消息，并生成消息发送出去
     peer.write_buffer_str.clear();
-    peer.write_buffer_str = MsgTyper::CreateHandShakedMsg(myself, peer);
+    peer.msg_handler(boost::ref(myself), boost::ref(peer));
     peer.processor = HalfShaked;
 }
 
-bool InitialRead(Peer &myself, Peer& peer) {
-    // 判断是接受连接的还是主动连接别人
-    // 主动连接别人 生成消息然后发送
-    // 被动连接，解析消息，并生成消息发送出去
-    MsgTyper::ParseMsg(myself, peer);
-    peer.processor = HalfShakedRead;
-}
 
 
 bool HalfShaked(Peer &myself, Peer &peer) {
-    std::string msg (peer.read_buffer);
     // parse recv shake msg
-    if (MsgTyper::ParseMsg(myself, peer)) {
+    if (peer.msg_handler(boost::ref(myself), boost::ref(peer))) {
         peer.processor = HandShaked;
     }
 }
 
 
 bool HalfShakedRead(Peer &myself, Peer &peer) {
-    std::string msg (peer.read_buffer);
     // parse recv shake msg
-    if (MsgTyper::ParseMsg(myself, peer)) {
+    if (peer.msg_handler(boost::ref(myself), boost::ref(peer))) {
         peer.processor = HandShaked;
     }
 }
 
 
 bool HandShaked(Peer &myself, Peer &peer) {
-    peer.write_buffer_str = MsgTyper::CreateBitfieldMsg(myself, peer);
-    peer.processor = SendBitfield;
+    if( peer.msg_handler(boost::ref(myself), boost::ref(peer)) ) {
+        peer.processor = SendBitfield;
+    }
 }
 
 
 bool SendBitfield(Peer &myself, Peer &peer) {
-    if( MsgTyper::ParseMsg(myself, peer)) {
+    if( peer.msg_handler(boost::ref(myself), boost::ref(peer))) {
+        peer.processor = Data;
+        peer.data_exchange_processor = Data01;
+    }
+}
+
+
+bool RecvBitfield(Peer &myself, Peer &peer) {
+    if( peer.msg_handler(boost::ref(myself), boost::ref(peer))) {
         peer.processor = Data;
         peer.data_exchange_processor = Data01;
     }
@@ -100,6 +104,8 @@ bool Data(Peer &myself, Peer &peer) {
     peer.data_exchange_processor(myself, peer);
     peer.data_exchange_processor = Data01;
 }
+
+*/
 
 bool Closing(Peer &myself, Peer &peer) {
 

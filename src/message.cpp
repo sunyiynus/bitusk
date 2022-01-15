@@ -9,13 +9,15 @@
 #include <stdexcept>
 #include <queue>
 #include <set>
-
+    
 #include <boost/function.hpp>
+#include <boost/asio.hpp>
 
 #include "message.hpp"
+#include "peer.hpp"
 #include "basic.hpp"
 
-#define UCHAR( x ) static_cast<unsigned char>( x )
+
 
 MsgTyper::ustring MsgTyper::keep_alive    { 0x0, 0x0, 0x0, 0x0 };
 MsgTyper::ustring MsgTyper::chocke        { 0x0, 0x0, 0x0, 0x1, 0x0};
@@ -31,9 +33,8 @@ std::map<int, boost::function<bool(Peer&,Peer&, const MsgTyper::ustring&)>> MsgT
 
 
 
-
 const std::string MsgTyper::CreateMsg(Peer& myself, Peer& peer) {
-
+    return "true";
 }
 
 const std::string BasicCreateMsg(Peer& myself,
@@ -289,58 +290,6 @@ bool MsgTyper::ParseMsg_map(Peer& myself, Peer& peer) {
 
 
 
-bool MsgTyper::ParseMsg(Peer& myself, Peer& peer) {
-    ustring words;
-    words += UCHAR(19);
-    words += reinterpret_cast<const unsigned char*>("BitTorrent protocol");
-
-    std::vector<ustring> msgs( std::move( SplitMsg(myself, peer) ) );
-
-    for( auto& msg: msgs) {
-        if( words == msg.substr(0, 20)) {
-            ProcessHandShakeMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] ==  MsgNum::kChoke) {
-            ProcessChokeMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
-            ProcessUnchokeMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
-            ProcessUnchokeMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kInterested ) {
-            ProcessInterestedMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kUninterested ) {
-            ProcessUninterestedMsg(myself, peer, msg);
-
-        } else if( msg[  4 ] == MsgNum::kHave ) {
-            ProcessHaveMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kBitfield ) {
-            ProcessBitfieldMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kRequest ) {
-            ProcessRequestMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kPiece ) {
-            ProcessPieceMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kCancel ) {
-            ProcessCancelMsg(myself, peer, msg);
-
-        } else if( msg[ 4 ] == MsgNum::kPort ) {
-            ProcessPieceMsg(myself, peer, msg);
-        } else {
-            continue;
-        }
-    } // end for
-
-    return 0;
-}
-
-
 
 bool MsgTyper::ProcessHandShakeMsg(Peer& myself, Peer& peer, const ustring& str) {
 
@@ -419,7 +368,81 @@ bool MsgTyper::ProcessPortMsg(Peer& myself, Peer& peer, const ustring& str) {
 
 
 
+bool CreateMsg(Peer& myself, Peer& peer) {
+    LOGGER(logger);
+    std::string msg = "this is msg from sender.";
+    peer.write_buffer_str = msg;
+    std::copy(msg.begin(), msg.end(), peer.write_buffer);
+    logger.Debug() << "Create msg :" << msg << " and shift to reader.";
+    peer.msg_handler = ParseMsg;
+    sleep(2);
+    return true;
+}
 
+
+
+
+bool ParseMsg(Peer& myself, Peer& peer) {
+    LOGGER(logger);
+    peer.write_buffer_str.clear();
+#ifdef DEBUG_MACRO
+    logger.Debug() << "this is debug msg parser";
+    logger.Debug() << "Recive msg:" << peer.read_buffer;
+    std::memset(peer.read_buffer, 0, Peer::MaxBufferSize);
+#else
+    ustring words;
+    words += UCHAR(19);
+    words += reinterpret_cast<const unsigned char*>("BitTorrent protocol");
+
+    std::vector<ustring> msgs( std::move( MsgTyper::SplitMsg(myself, peer) ) );
+
+    for( auto& msg: msgs) {
+        if( words == msg.substr(0, 20)) {
+            MsgTyper::ProcessHandShakeMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] ==  MsgNum::kChoke) {
+            MsgTyper::ProcessChokeMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
+            MsgTyper::ProcessUnchokeMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kUnchoke ) {
+            MsgTyper::ProcessUnchokeMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kInterested ) {
+            MsgTyper::ProcessInterestedMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kUninterested ) {
+            MsgTyper::ProcessUninterestedMsg(myself, peer, msg);
+
+        } else if( msg[  4 ] == MsgNum::kHave ) {
+            MsgTyper::ProcessHaveMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kBitfield ) {
+            MsgTyper::ProcessBitfieldMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kRequest ) {
+            MsgTyper::ProcessRequestMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kPiece ) {
+            MsgTyper::ProcessPieceMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kCancel ) {
+            MsgTyper::ProcessCancelMsg(myself, peer, msg);
+
+        } else if( msg[ 4 ] == MsgNum::kPort ) {
+            MsgTyper::ProcessPieceMsg(myself, peer, msg);
+        } else {
+            continue;
+        }
+    } // end for
+#endif
+    logger.Debug() << "shift to Writor.";
+    sleep(2);
+    peer.msg_handler = CreateMsg;
+
+    return 0;
+}
 
 
 

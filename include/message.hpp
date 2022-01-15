@@ -1,13 +1,16 @@
 #ifndef BITUSK_SRC_MESSAGE_HPP__
 #define BITUSK_SRC_MESSAGE_HPP__
 
-#include "peer.hpp"
 #include <sstream>
 #include <string>
 #include <mutex>
 
-class Peer;
+#include "peer.hpp"
+#include "datacache.hpp"
 
+struct Peer;
+
+#define UCHAR( x ) static_cast<unsigned char>( x )
 
 
 namespace MsgNum {
@@ -53,7 +56,6 @@ public:
     static void InitMsgProcessors();
 
     static const std::string CreateMsg(Peer& myself, Peer& peer);
-    static bool CreateMsgf(Peer& myself, Peer& peer);
     static const std::string CreateHandShakedMsg(Peer& myself, Peer& peer);
     static const std::string CreateKeepAliveMsg(Peer& myself, Peer& peer);
     static const std::string CreateChokedMsg(Peer& myself, Peer& peer);
@@ -69,7 +71,6 @@ public:
     static std::vector<ustring> SplitMsg(Peer& myself, Peer& peer);
 
     static bool ParseMsg_map(Peer& myself, Peer& peer);
-    static bool ParseMsg(Peer& myself, Peer& peer);
     static bool ProcessHandShakeMsg(Peer& myself, Peer& peer, const ustring& str);
     static bool ProcessKeepAliveMsg(Peer& myself, Peer& peer, const ustring& str);
     static bool ProcessChokeMsg(Peer& myself, Peer& peer, const ustring& str);
@@ -85,6 +86,8 @@ public:
 
 };
 
+bool CreateMsg(Peer& myself, Peer& peer);
+bool ParseMsg(Peer& myself, Peer& peer);
 
 inline int MsgTyper::IntToChar(int i, MsgTyper::uostringstream& os) {
     unsigned char c [4] = {0};
@@ -124,6 +127,9 @@ inline long long MsgTyper::CharToInt(const ustring& str) {
 
     return i;
 }
+
+
+
 
 
 #endif // BITUSK_SRC_MESSAGE_HPP__

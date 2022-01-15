@@ -1,5 +1,5 @@
-#ifndef BITUSK_SRC_PEER_H__
-#define BITUSK_SRC_PEER_H__
+#ifndef BITUSK_SRC_PEER_HPP__
+#define BITUSK_SRC_PEER_HPP__
 
 #include <boost/asio/io_context.hpp>
 #include <boost/smart_ptr/make_shared_array.hpp>
@@ -20,9 +20,10 @@
 #include <boost/function.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/bind.hpp>
+#include <boost/ref.hpp>
 
 #include "bitfield.hpp"
-#include "message.hpp"
+//#include "message.hpp"
 #include "basic.hpp"
 #include "log.hpp"
 
@@ -30,6 +31,7 @@ using namespace boost::asio;
 
 
 typedef boost::shared_ptr<ip::tcp::socket> SocketPtr;
+
 
 
 struct RequestPiece {
@@ -91,7 +93,7 @@ public:
     boost::function<bool(Peer& myself, Peer& peer)> msg_handler;
     SocketPtr socket;
 
-    int state;  // 有可能弃用了。
+    int state;  // 有可能弃用了。还是用了，为了简化代码结构。
     bool am_choking;
     bool am_interested;
     bool peer_choking;
@@ -100,7 +102,7 @@ public:
     BitMap bitmap;
 
     ip::tcp::endpoint ep;
-    
+
     // buffer design
     // TODO
     enum {MaxBufferSize = 1024 * 10};
@@ -173,15 +175,18 @@ inline const Peer Peer::Clone() const {
     peer.scounter.downloads = 0;
     peer.scounter.file_total_size = scounter.file_total_size;
     peer.scounter.uploads = 0;
+    std::memset(peer.read_buffer, 0, MaxBufferSize);
     return peer;
 }
 
 
 
+bool IOcall(Peer& myself, Peer& peer);
 bool Initial(Peer& myself, Peer& peer);
 bool HalfShaked(Peer& myself, Peer& peer);
 bool HandShaked(Peer& myself, Peer& peer);
 bool SendBitfield(Peer& myself, Peer& peer);
+bool RecvBitfield(Peer& myself, Peer& peer);
 bool Data(Peer& myself, Peer& peer);
 bool Closing(Peer& myself, Peer& peer);
 
@@ -193,6 +198,9 @@ bool Data00(Peer& myself, Peer&);
 bool Data11(Peer& myself, Peer&);
 bool Data10(Peer& myself, Peer&);
 
+extern bool CreateMsg(Peer& myself, Peer& peer);
+extern bool ParseMsg(Peer& myself, Peer& peer);
+
 
 class PeersManager: public boost::enable_shared_from_this<PeersManager>{
 public:
@@ -202,7 +210,7 @@ public:
 public:
     static PeersManager* InitInstance(io_context& ioc);
     static PeersManager* Instance();
-#if ((defined(_MSVC_LANG) && _MSVC_LANG >=  201703L ) || __cplusplus >=  201703L) 
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >=  201703L ) || __cplusplus >=  201703L)
     inline static std::atomic<PeersManager*> m_instance;
     inline static std::mutex m_mtx;
 #else
@@ -218,10 +226,12 @@ public:
         for( const auto& ep: eps) {
             AddPeer(ep);
         }
+        return true;
     }
 
     bool AddPeer(const ip::tcp::endpoint& ep) {
         ConnectPeer(ep);
+        return true;
     }
 
 public:
@@ -236,61 +246,68 @@ public:
         peer->ep = ep;
         SocketPtr socket = boost::make_shared<ip::tcp::socket>(ioc_);
         peer->socket = socket;
-        peer->processor = Initial;
-        peer->msg_handler = MsgTyper::CreateMsg;
+        peer->processor = IOcall;
+        peer->msg_handler = CreateMsg;
         logger.Debug() << " this connectting peer " << ep.address().to_string() << ":" <<ep.port();
-        socket->async_connect(ep, MEM_FN2(OnConnection, peer, _1));
+        peer->socket->async_connect(ep, boost::bind(&PeersManager::OnConnection,this, peer, _1));
+        logger.Debug() << " this connectting peer " << ep.address().to_string() << ":" <<ep.port();
     }
 
 
     void OnConnection(Peer::Ptr peerptr, const error_code& er) {
         LOGGER(logger);
-        if( er ) {
-            std::cout << peerptr->ep.address().to_string() << " connection failure !" << std::endl;
-            unready_peers_.push_back(peerptr);
-            return ;
-            // write to some;
-        }
-        peers_.push_back(peerptr);
         logger.Debug() << "Connectting peer : " << peerptr->ep.address().to_string() << "Successful." ;
-        
-        DoWrite(peerptr);
+        if( !er ) {
+            peers_.push_back(peerptr);
+            DoWrite(peerptr);
+            return;
+        }
+        logger.Error() << peerptr->ep.address().to_string() << " connection failure !";
+        unready_peers_.push_back(peerptr);
+        // write to some;
     }
 
     void DoWrite(Peer::Ptr peerptr) {
 
         peerptr->processor(myself_, *peerptr);
-        async_write(*(peerptr->socket), buffer(peerptr->write_buffer_str),
-                            MEM_FN2(OnWrite, peerptr, _1));
+        async_write(*(peerptr->socket), buffer(peerptr->write_buffer, peerptr->write_buffer_str.size()),
+                            boost::bind(&PeersManager::OnWrite, this, peerptr, _1));
     }
 
 
     void OnWrite(Peer::Ptr peerptr, const error_code& er) {
+        LOGGER(logger);
         if( er ){
+            logger.Error() << "Write failure ...";
             // error handle
+            return;
         }
 
         DoRead(peerptr);
     }
 
     void DoRead(Peer::Ptr peerptr) {
-        async_read(*(peerptr->socket), buffer(peerptr->read_buffer, Peer::MaxBufferSize),
-                    MEM_FN3(OnRead, peerptr, _1, _2));
+        LOGGER(logger);
+        assert(peerptr.get() != nullptr);
+        assert(peerptr->socket.get() != nullptr);
+        //assert(peerptr.get() != nullptr);
+        logger.Debug()<< "async read hand on";
+        peerptr->socket->async_read_some(buffer(peerptr->read_buffer),
+                    boost::bind(&PeersManager::OnRead, this, peerptr, _1, _2));
+        logger.Debug()<< "async read hand on";
     }
 
     void OnRead(Peer::Ptr peerptr, const error_code& er, size_t bytes) {
+        LOGGER(logger);
         if( er ) {
             if( bytes == 0 ) {
-                DoWrite(peerptr);
+                logger.Error()<< "not recv message can we show..";
+                //DoWrite(peerptr);
             }
         }
 
-        ProcessMsg(peerptr);
-        DoWrite(peerptr);
-    }
-
-    void ProcessMsg(Peer::Ptr peerptr) {
         peerptr->processor(myself_, *peerptr);
+        DoWrite(peerptr);
     }
 
     void StartRecvPeerConnection() {
@@ -308,12 +325,14 @@ public:
             return;
         }
         logger.Debug() << "Accepte " << peerptr->socket->remote_endpoint().address().to_string()
-                        <<":" << peerptr->socket->remote_endpoint().port() << "connection! \n";
-        peerptr->processor = Initial;
-        peerptr->msg_handler = MsgTyper::ParseMsg;
+                        <<":" << peerptr->socket->remote_endpoint().port() << " connection! \n";
+        peerptr->processor = IOcall;
+        peerptr->msg_handler = ParseMsg;
         peers_.push_back(peerptr);
+        logger.Debug() << "add peer into peer list";
         DoRead(peerptr);
 
+        logger.Debug() << "Continue listen....";
         boost::shared_ptr<Peer> ptr = boost::make_shared<Peer>(myself_.Clone());
         ptr->socket = boost::make_shared<ip::tcp::socket>(ioc_);
         acceptor->async_accept(*(ptr->socket), MEM_FN2(RecvPeerConnect, ptr, _1));
@@ -354,7 +373,7 @@ private:
 
     PeersManager(io_context& ioc): ioc_(ioc){}
 #else
-    PeersManager(io_context& ioc): ioc_(ioc), 
+    PeersManager(io_context& ioc): ioc_(ioc),
                 acceptor(boost::make_shared<ip::tcp::acceptor>((ioc, ip::tcp::endpoint(ip::tcp::v4(), 6969)))) {}
 #endif
     std::list<boost::shared_ptr<Peer>> peers_;

@@ -10,7 +10,7 @@
 
 using namespace bitusk;
 
-TEST_CASE("Peer Initialize...", "[Peer]")
+TEST_CASE("Peer Functional Testing...", "[PeersManager class]")
 {
     Peer myself;
     auto metafile = bitusk::MetafileObject::readMetaStrFromFile("./test-bt.torrent");
@@ -25,6 +25,8 @@ TEST_CASE("Peer Initialize...", "[Peer]")
     //std::cout <<"peer id .." << metafile->getString("name") << std::endl;
     std::cout << "Info hash " << reinterpret_cast<const char*>(myself.info_hash.c_str()) << std::endl;
     std::cout << "peer id " << reinterpret_cast<const char*>(myself.peer_id.c_str()) << std::endl;
+    PeersManager* pm = PeersManager::Instance();
+    REQUIRE( pm == nullptr);
     SECTION("This peer context...") {
         
     }

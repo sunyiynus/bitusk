@@ -6,6 +6,7 @@
 #include <iomanip>
 
 
+
 #define MEM_FN(x)       boost::bind(&SelfType::x, shared_from_this())
 #define MEM_FN1(x,y)    boost::bind(&SelfType::x, shared_from_this(), y)
 #define MEM_FN2(x,y,z)  boost::bind(&SelfType::x, this, y,z)
