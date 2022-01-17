@@ -1,3 +1,3 @@
-[submodule "extern/Catch2"]
-	path = extern/Catch2
-	url = https://hub.fastgit.org/catchorg/Catch2.git
+[submodule "extern/catch"]
+	path = extern/catch
+	url = https://github.com/catchorg/Catch2/blob/v2.x/single_include/catch2/catch.hpp
