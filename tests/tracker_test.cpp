@@ -1,5 +1,5 @@
 #include "metafileparser.hpp"
-#include "catch.hpp"
+#include "catch2/catch_test_macros.hpp"
 #include "tracker.hpp"
 
 #include <boost/asio/io_context.hpp>

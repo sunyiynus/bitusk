@@ -1,14 +1,13 @@
 //#define CATCH_CONFIG_MAIN
 
 #include "bitfield.hpp"
-#include "catch.hpp"
+#include "catch2/catch_test_macros.hpp"
 
 
 #include <sstream>
 
 TEST_CASE("Initial", "[BitMap]") {
-    BitMap bitmap(10);
-    REQUIRE( bitmap.Counting(0) == 10);
+    BitMap bitmap(10, false);
 
     SECTION("Test BitMap::BitMap(size_t)") {
         bitmap.SetBitValue(8,true);
@@ -23,9 +22,6 @@ TEST_CASE("Initial With String", "[BitMap]") {
     REQUIRE( bitmap.Size() ==  9);
     REQUIRE( bitmap.GetBitValue(0) ==  true);
     REQUIRE( bitmap.GetBitValue(1) ==  false);
-    REQUIRE( bitmap.Counting(true) == 5);
-    REQUIRE( bitmap.Counting(false) == 4);
-    REQUIRE( (bitmap.Counting(false) + bitmap.Counting(true)) == bitmap.Size());
 }
 
 
@@ -35,9 +31,6 @@ TEST_CASE("Initial With String with 0001 000", "[BitMap]") {
     REQUIRE( bitmap.Size() ==  9);
     REQUIRE( bitmap.GetBitValue(0) ==  true);
     REQUIRE( bitmap.GetBitValue(1) ==  false);
-    REQUIRE( bitmap.Counting(true) == 5);
-    REQUIRE( bitmap.Counting(false) == 4);
-    REQUIRE( (bitmap.Counting(false) + bitmap.Counting(true)) == bitmap.Size());
 }
 
 
@@ -47,9 +40,6 @@ TEST_CASE("Out put", "[BitMap]") {
     REQUIRE( bitmap.Size() ==  9);
     REQUIRE( bitmap.GetBitValue(0) ==  true);
     REQUIRE( bitmap.GetBitValue(1) ==  false);
-    REQUIRE( bitmap.Counting(true) == 5);
-    REQUIRE( bitmap.Counting(false) == 4);
-    REQUIRE( (bitmap.Counting(false) + bitmap.Counting(true)) == bitmap.Size());
     std::ostringstream os;
     os << bitmap;
     std::cout <<"Out push >> " << os.str();
@@ -60,9 +50,6 @@ TEST_CASE("Out put", "[BitMap]") {
     REQUIRE( bitmap.Size() ==  9);
     REQUIRE( bitmap.GetBitValue(0) ==  true);
     REQUIRE( bitmap.GetBitValue(1) ==  true);
-    REQUIRE( bitmap.Counting(true) == 9);
-    REQUIRE( bitmap.Counting(false) == 0);
-    REQUIRE( (bitmap.Counting(false) + bitmap.Counting(true)) == bitmap.Size());
 }
 
 

@@ -3,8 +3,8 @@
 #include <string>
 
 #include "peer.hpp"
-#include "catch.hpp"
 #include "metafileparser.hpp"
+#include "catch2/catch_test_macros.hpp"
 
 
 
