@@ -1,11 +1,10 @@
-
+#include "bitfield.hpp"
 #include <cstddef>
 #include <iostream>
 #include <pthread.h>
 #include <sstream>
 #include <string>
 
-#include "bitfield.hpp"
 
 
 NotFindException::NotFindException(const char* message):msg_(message) {}
@@ -19,62 +18,43 @@ const char* NotFindException::what() const noexcept{
 }
 
 
-BitMap::BitMap(size_t bits): bitmap_(bits, false) {}
+BitMap::BitMap(size_t bits, const bool initVal)
+{
+
+}
 
 
 BitMap::BitMap(const std::string& bits) {
     std::istringstream ins (bits);
-    Read(ins);
 }
 
 
 void BitMap::Clear() {
-    bitmap_.clear();
 }
 
-size_t BitMap::Size() const {
-    return bitmap_.size();
+const size_t BitMap::Size() const {
 }
 
 
 bool BitMap::GetBitValue(int index) const {
-    return bitmap_[index];
 }
 
 
 BitMap& BitMap::SetBitValue(int index, bool val) {
-    bitmap_[index] = val;
     return *this;
 }
 
 
 BitMap& BitMap::SetAllBits(bool val) {
-#ifdef VECTOR_BOOL_SUPPORT_ITERTOR
-    std::for_each(bitmap_.begin(), bitmap_.end(), [](auto& ele){ ele = val;});
-#else
-    for( int i = 0; i < bitmap_.size(); ++i) {
-        bitmap_[i] = val;
-    }
-#endif
     return *this;
 }
 
 
 size_t BitMap::Counting(bool bit) const {
-#ifdef VECTOR_BOOL_SUPPORT_ITERTOR
-    return std::count(bitmap_.begin(), bitmap_.end(), bit);
-#else
-    int counting = 0;
-    for( int i = 0 ; i < bitmap_.size(); ++i) {
-        int tmp = ( bitmap_[i] == bit)? counting++ : 0;
-    }
-    return counting;
-#endif
 }
 
 
 bool BitMap::operator==(const BitMap& a) {
-    return bitmap_ == a.bitmap_;
 }
 
 
@@ -128,4 +108,3 @@ std::istream& operator>>(std::istream& in, BitMap& bitmap) {
     bitmap.Read(in);
     return in;
 }
-
