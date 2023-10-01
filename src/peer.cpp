@@ -4,48 +4,41 @@
 #include <atomic>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
-#include <mutex>
+#include <boost/function.hpp>
 #include <boost/smart_ptr/make_shared_array.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
-#include <boost/function.hpp>
-
+#include <mutex>
 
 // RequestPiece::RequestPiece(size_t i, size_t so, size_t len): index(i), slice_offset(so), length(len) {}
 
-
-
-
-
 // class PeersManager
-#if ((defined(_MSVC_LANG) && _MSVC_LANG >=  201703L ) || __cplusplus >=  201703L) 
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L)
 #else
 std::atomic<PeersManager*> PeersManager::m_instance;
 std::mutex PeersManager::m_mtx;
-#endif //
-
+#endif  //
 
 PeersManager* PeersManager::InitInstance(boost::asio::io_context& ioc) {
-    PeersManager* tmp = m_instance.load(std::memory_order_relaxed);
-    std::atomic_thread_fence(std::memory_order_acquire);
-    if( nullptr ==  tmp ) {
-        std::lock_guard<std::mutex> lok(m_mtx);
-        if( nullptr == tmp ) {
-            tmp = new PeersManager(ioc);
-            std::atomic_thread_fence(std::memory_order_acquire);
-            m_instance.store(tmp, std::memory_order_relaxed );
-        }
+  PeersManager* tmp = m_instance.load(std::memory_order_relaxed);
+  std::atomic_thread_fence(std::memory_order_acquire);
+  if (nullptr == tmp) {
+    std::lock_guard<std::mutex> lok(m_mtx);
+    if (nullptr == tmp) {
+      tmp = new PeersManager(ioc);
+      std::atomic_thread_fence(std::memory_order_acquire);
+      m_instance.store(tmp, std::memory_order_relaxed);
     }
+  }
 
-    return tmp;
+  return tmp;
 }
 
 PeersManager* PeersManager::Instance() {
-    return m_instance.load(std::memory_order_relaxed);
+  return m_instance.load(std::memory_order_relaxed);
 }
 
-
-bool IOcall(Peer &myself, Peer& peer){
-    return peer.msg_handler(myself,peer);
+bool IOcall(Peer& myself, Peer& peer) {
+  return peer.msg_handler(myself, peer);
 }
 
 /*
@@ -107,22 +100,14 @@ bool Data(Peer &myself, Peer &peer) {
 
 */
 
-bool Closing(Peer &myself, Peer &peer) {
+bool Closing(Peer& myself, Peer& peer) {}
 
+bool Data01(Peer& myself, Peer&) {
+  //
 }
 
-bool Data01(Peer &myself, Peer &) {
-    //
-}
+bool Data00(Peer& myself, Peer&) {}
 
-bool Data00(Peer &myself, Peer &) {
+bool Data11(Peer& myself, Peer&) {}
 
-}
-
-bool Data11(Peer &myself, Peer &) {
-
-}
-
-bool Data10(Peer &myself, Peer &) {
-
-}
+bool Data10(Peer& myself, Peer&) {}

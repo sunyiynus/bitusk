@@ -29,13 +29,13 @@ constexpr int32_t ONE = 1;
 class BitMap : public NotEqual<BitMap> {
  public:
   using bytes_type = std::uint8_t;
-  BitMap() = default;
-  BitMap(const BitMap& bm) = default;
+  BitMap();
+  BitMap(const BitMap& bm);
+  BitMap(BitMap&& bm);
   BitMap& operator=(const BitMap& bm) = default;
   ~BitMap();
 
   BitMap(size_t bits, const bool initVal);
-  BitMap(const std::string& bits);
 
   const size_t Size() const;
   bool GetBitValue(int index) const;
@@ -52,6 +52,8 @@ class BitMap : public NotEqual<BitMap> {
   std::size_t uint8Size;
   bytes_type* bitsPtr;
 };
+
+BitMap ConvertBitsStringToBitMap(const std::string& s);
 
 std::ostream& operator<<(std::ostream& out, const BitMap& bitmap);
 std::istream& operator>>(std::istream& in, BitMap& bitmap);
