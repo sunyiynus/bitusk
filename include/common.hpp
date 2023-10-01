@@ -1,13 +1,10 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
-
-template<typename T>
+template <typename T>
 class NotEqual {
-public:
-    bool operator!=(const T& a) {
-       return !(*static_cast<T*>(this) == a);
-    }
+ public:
+  bool operator!=(const T& a) { return !(*static_cast<T*>(this) == a); }
 };
 
-#endif // COMMON_HPP
+#endif  // COMMON_HPP

@@ -1,110 +1,106 @@
 #include "bitfield.hpp"
-#include <cstddef>
-#include <iostream>
 #include <pthread.h>
+#include <cstddef>
+#include <cstring>
+#include <iostream>
 #include <sstream>
 #include <string>
 
+NotFindException::NotFindException(const char* message) : msg_(message) {}
 
+NotFindException::NotFindException(const std::string& message)
+    : msg_(message) {}
 
-NotFindException::NotFindException(const char* message):msg_(message) {}
-
-
-NotFindException::NotFindException(const std::string& message): msg_(message) {}
-
-
-const char* NotFindException::what() const noexcept{
-    return msg_.c_str();
+const char* NotFindException::what() const noexcept {
+  return msg_.c_str();
 }
 
+BitMap::BitMap(size_t bits, const bool initVal) : bitSize(bits) {
+  uint8Size =
+      bits % BYTE_BITS == ZERO ? bits / BYTE_BITS : bits / BYTE_BITS + ONE;
 
-BitMap::BitMap(size_t bits, const bool initVal)
-{
-
+  if (bitsPtr == nullptr) {
+    bitsPtr = new bytes_type[uint8Size];
+  }
+  bytes_type tmp = 0;
+  if (initVal) {
+    tmp = static_cast<bytes_type>(ZERO) - ONE;
+  }
+  std::memset(bitsPtr, uint8Size, tmp);
 }
 
-
-BitMap::BitMap(const std::string& bits) {
-    std::istringstream ins (bits);
+BitMap::BitMap(const std::string& bitstr) : BitMap(bitstr.size(), false) {
+  for (int i = 0; i < bitstr.size(); ++i) {
+    bool val = true;
+    if (bitstr[i] == '0') {
+      val = false;
+    }
+    SetBitValue(i, val);
+  }
 }
 
-
-void BitMap::Clear() {
+BitMap::~BitMap() {
+  delete[] bitsPtr;
 }
 
 const size_t BitMap::Size() const {
+  return bitSize;
 }
-
 
 bool BitMap::GetBitValue(int index) const {
+  if (index >= bitSize) {
+    throw std::out_of_range("Bitmap Index out range.");
+  }
+  auto pos = bitPos(index);
+  return ((bitsPtr[pos.first] & (ONE << pos.second)) > ZERO);
 }
-
 
 BitMap& BitMap::SetBitValue(int index, bool val) {
+  if (index >= bitSize) {
     return *this;
-}
+  }
 
+  auto pos = bitPos(index);
+  if (val == true) {
+    bitsPtr[pos.first] |= (ONE << pos.second);
+  } else {
+    bitsPtr[pos.first] &= ~(ONE << pos.second);
+  }
+  return *this;
+}
 
 BitMap& BitMap::SetAllBits(bool val) {
-    return *this;
+  bytes_type tmp = ZERO;
+  if (val) {
+    tmp = static_cast<bytes_type>(ZERO) - ONE;
+  }
+  std::memset(bitsPtr, uint8Size, tmp);
+  return *this;
 }
 
-
-size_t BitMap::Counting(bool bit) const {
+void BitMap::flip() {
+    for (int i = 0; i < uint8Size; ++i) {
+    bitsPtr[i] = ~bitsPtr[i];
+    }
 }
-
 
 bool BitMap::operator==(const BitMap& a) {
-}
-
-
-size_t BitMap::DifferentPosition(const BitMap& cbitmap){
-    if( *this == cbitmap ) throw NotFindException("Not find different bit");
-    int i = 0;
-#ifdef VECTOR_BOOL_SUPPORT_ITERTOR
-    auto is_diff = [&](auto& ele) {
-        return cbitmap.GetBitValue(i++) == ele;
+  if (a.Size() != this->Size()) {
+    return false;
+  } else {
+    for (int i = 0; i < uint8Size; i++) {
+      if (a.bitsPtr[i] != this->bitsPtr[i]) {
+        return false;
+      }
     }
-    auto result = std::find_if(bitmap_.begin(), bitmap_.end(), is_diff);
-    // TODO
-    // there may be error in this case :
-    // result == bitmap_.begin() so std::distance(begin(), begin()) what happened?
-    return std::distance(bitmap_.begin(), result) - 1;
-#else
-    if( bitmap_.size() != cbitmap.Size()) throw NotFindException("bit map size is different.");
-    for( int i = 0; i < bitmap_.size(); ++i) {
-        if( bitmap_[i] != cbitmap.GetBitValue(i)) {
-            return i;
-        }
-    }
-
-    throw NotFindException("Is The Same Bitmap.");
-#endif
-}
-
-#define FOR_EACH(data) for(int i = 0; i < data; ++i)
-
-
-void BitMap::Write(std::ostream& os) const {
-    FOR_EACH(bitmap_.size()) {
-        os << bitmap_[i] << " ";
-    }
-}
-
-void BitMap::Read(std::istream& is) {
-    bitmap_.clear();
-    bool tmp = false;
-    while( is >> tmp ) {
-        bitmap_.push_back(tmp);
-    }
+    return true;
+  }
 }
 
 std::ostream& operator<<(std::ostream& out, const BitMap& bitmap) {
-    bitmap.Write(out);
-    return out;
+  return out;
 }
 
 std::istream& operator>>(std::istream& in, BitMap& bitmap) {
-    bitmap.Read(in);
-    return in;
+  return in;
 }
