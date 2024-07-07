@@ -40,6 +40,7 @@ Progress:
 ref.
 1. [The BitTorrent Protocol Specification](https://www.bittorrent.org/beps/bep_0003.html)
 2. [Building a BitTorrent client from the ground up in Go](https://blog.jse.li/posts/torrent/)
+3. [Bittorrent Protocol Specification v1.0](https://wiki.theory.org/BitTorrentSpecification)
 
 
 roadmap
