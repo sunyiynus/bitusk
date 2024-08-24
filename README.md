@@ -16,8 +16,8 @@ Used Libraries:
 
 Progress:
 
-+ ~~metafile parser~~
-+ tracker connecting 60%
++ bt文件解析
++ tracker服务器连接
     >TODO: support UDP server
 + peer data exchange 30%
 + datacache 80%
@@ -36,3 +36,19 @@ Progress:
 
 
 可以针对Dependable作出的改进：
+
+ref.
+1. [The BitTorrent Protocol Specification](https://www.bittorrent.org/beps/bep_0003.html)
+2. [Building a BitTorrent client from the ground up in Go](https://blog.jse.li/posts/torrent/)
+3. [Bittorrent Protocol Specification v1.0](https://wiki.theory.org/BitTorrentSpecification)
+4. [Bencode](https://en.wikipedia.org/wiki/Bencode)
+
+
+roadmap
+1. 分析要做那些部分
+2. 分析技术难题
+3. 搭建平台
+4. 自己写库
+
+
+
