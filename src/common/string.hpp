@@ -37,6 +37,8 @@ inline BasicString<CharT>::BasicString(const CharT* const str) {
 using String = BasicString<char>;
 
 
+
+
 } // namespace bitusk
 
 

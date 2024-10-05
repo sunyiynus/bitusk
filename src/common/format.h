@@ -36,31 +36,6 @@ struct formatter {
 
 };
 
-template <typename ...Ts>
-std::string format_var(Ts... args);
-
-template <typename T>
-std::string format_var(T var) {
-    std::string res;
-    if constexpr (std::is_same<char, T>::value || std::is_same<const char*, T>::value){
-        res += (var);
-    } else {
-        res += std::to_string(var);
-    }
-    return res;
-}
-
-template <typename T, typename ...Ts>
-std::string format_var(T var, Ts... args) {
-    std::string res;
-    if constexpr (std::is_same<char, T>::value || std::is_same<const char*, T>::value){
-        res += (var);
-    } else {
-        res += std::to_string(var);
-    }
-    res += format_var(args...);
-    return res;
-}
 
 } //
 

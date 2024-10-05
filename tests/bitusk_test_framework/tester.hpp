@@ -6,10 +6,11 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include "noncopyable.hpp"
 
 typedef void(*CallableVoid)();
 
-class AllTestCaseManager {
+class AllTestCaseManager : public noncopyable {
 private:
     std::map<std::string, CallableVoid> allcases;
 
@@ -18,7 +19,6 @@ public:
         static AllTestCaseManager manager;
         return manager;
     }
-
 
     void registeTestCase(std::string casename, CallableVoid function) {
         allcases[casename] = function;
@@ -60,7 +60,7 @@ class TestCaseReg {
 
 class TestError: public std::exception {
 public:
-    TestError()
+    TestError() = default;
 };
 
 #define ASSERT_TRUE(expr) \
@@ -70,8 +70,8 @@ try: \
         throw TestCaseReg;\
     } \
 catch (const std::exception & excep) { \
-
-    }
+    }\
+    
         
 
 
