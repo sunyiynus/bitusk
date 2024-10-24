@@ -45,17 +45,37 @@ static inline void list_head_insert(struct list_head* node, struct list_head* ne
 
 static inline struct list_head* list_head_remove_tail(struct list_head* head)
 {
+    if (head->prev == head) {
+        return NULL;
+    }
+    return list_head_remove(head->prev);
     
 }
 
-static inline void list_head_remove_head(struct list_head* head)
+static inline struct list_head* list_head_remove_head(struct list_head* head)
 {
+    if (head->next == head) {
+        return NULL;
+    }
+    return list_head_remove(head->next);
 }
 
-static inline void list_head_empty(struct list_head* head)
+static inline int list_head_empty(struct list_head* head)
 {
+    return head->next == head && head->prev == head;
 }
 
+
+static inline size_t list_head_len(struct list_head* head)
+{
+    size_t cnt = 0;
+    struct list_head* current = head->next;
+    while( current != head) {
+        cnt++;
+        current = current->next;
+    }
+    return cnt;
+}
 
 
 

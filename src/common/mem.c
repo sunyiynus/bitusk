@@ -128,3 +128,12 @@ void* malloc(const size_t size)
         init_arean(&g_mainArean);
     }
 }
+
+
+int free(void* ptr)
+{
+    if (ptr != NULL) {
+        return intern_free(ptr);
+    }
+    return -1;
+}
