@@ -125,6 +125,7 @@ TEST_CASE("list_length returns correct length for a list with multiple nodes") {
 
 #include <cstdlib>  // For rand() and srand()
 #include <ctime>    // For time()
+static struct list_head new_node[600];
 
 TEST_CASE("list_length handles more than 20 nodes with random insertions and deletions") {
     struct list_head head;
@@ -145,15 +146,16 @@ TEST_CASE("list_length handles more than 20 nodes with random insertions and del
     // 随机删除和插入操作
     int insertions = 0;
     int deletions = 0;
-    for (int i = 0; i < 50; ++i) {
+    size_t new_node_idx = 0;
+    for (int i = 0; i < 600; ++i) {
         int operation = rand() % 2;  // 生成0或1，决定插入或删除操作
 
         if (operation == 0 && insertions < 25) {
             // 插入新的节点
-            struct list_head new_node;
-            INIT_LIST_HEAD(&new_node);
-            list_head_insert(&head, &new_node);
+            INIT_LIST_HEAD(&new_node[new_node_idx]);
+            list_head_insert(&head, &new_node[new_node_idx]);
             insertions++;
+            new_node_idx++;
         } else if (operation == 1 && deletions < insertions) {
             // 随机删除现有节点
             struct list_head* node_to_remove = head.next;
