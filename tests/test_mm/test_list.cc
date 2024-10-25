@@ -171,3 +171,54 @@ TEST_CASE("list_length handles more than 20 nodes with random insertions and del
     int final_length = 25 + insertions - deletions;
     REQUIRE(list_head_len(&head) == final_length);
 }
+
+
+
+// 测试用的简单结构体，包含 list_head 节点
+struct test_node {
+    int value;
+    struct list_head list;
+};
+
+// 初始化测试链表和节点
+void setup_test_list(struct list_head* head, struct test_node nodes[], int num_nodes) {
+    INIT_LIST_HEAD(head);
+    for (int i = 0; i < num_nodes; ++i) {
+        INIT_LIST_HEAD(&nodes[i].list);  // 初始化每个节点的 list_head
+        nodes[i].value = i;               // 给每个节点赋值
+        list_head_insert(head, &nodes[i].list);  // 插入到链表
+    }
+}
+
+TEST_CASE("list_head_for_each iterates over each node in the list") {
+    struct list_head head;
+    const int num_nodes = 5;
+    struct test_node nodes[num_nodes];
+
+    setup_test_list(&head, nodes, num_nodes);
+
+    // 遍历链表并检查每个节点的值
+    struct list_head* pos;
+    int i = 0;
+    list_head_for_each(pos, &head) {
+        struct test_node* node = list_entry(pos, struct test_node, list);
+        REQUIRE(node->value == nodes[num_nodes - i - 1].value);  // 检查节点值
+        i++;
+    }
+
+    REQUIRE(i == num_nodes);  // 确保遍历了 num_nodes 个节点
+}
+
+TEST_CASE("list_head_for_each handles empty list") {
+    struct list_head head;
+    INIT_LIST_HEAD(&head);
+
+    // 空链表遍历，应该不进入循环
+    struct list_head* pos;
+    int counter = 0;
+    list_head_for_each(pos, &head) {
+        counter++;
+    }
+
+    REQUIRE(counter == 0);  // 确保遍历计数为0
+}

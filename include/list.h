@@ -12,6 +12,13 @@ struct list_head {
     struct list_head *next;
 };
 
+#define list_head_for_each(pos, head) \
+    for (pos = (head)->next; pos != (head); pos = pos->next)
+
+
+#define list_entry(ptr, type, member) \
+((type *)((char *)(ptr) - offsetof(type, member)))
+
 static inline void INIT_LIST_HEAD(struct list_head* list)
 {
     list->prev = list;

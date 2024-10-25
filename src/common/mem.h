@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-void* malloc(const size_t size);
-int free(void* ptr);
+void* smalloc(const size_t size);
+int sfree(void* ptr);
 
 #endif // MEM_H

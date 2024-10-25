@@ -37,17 +37,17 @@ struct arean {
 };
 
 
-uint8_t g_mainBuffer[MAIN_BUFFER_SIZE];
-struct arean g_mainArean = {
+static uint8_t g_mainBuffer[MAIN_BUFFER_SIZE];
+static struct arean g_mainArean = {
     .init_flag = UN_INIT_AREAN,
     .buffer_ptr = g_mainBuffer,
     .buffer_size = sizeof(g_mainBuffer),
 };
 
-struct arean g_areanPool[AREAN_POOL_SIZE] = {0};
+static struct arean g_areanPool[AREAN_POOL_SIZE] = {0};
 static int init_chuck_info(struct arean* );
 
-uint32_t init_arean(struct arean* arean_ptr)
+static inline uint32_t init_arean(struct arean* arean_ptr)
 {
     INIT_LIST_HEAD(&(arean_ptr->used_list));
     INIT_LIST_HEAD(&(arean_ptr->free_list));
@@ -57,7 +57,7 @@ uint32_t init_arean(struct arean* arean_ptr)
     return INITED_AREAN;
 }
 
-int init_chuck_info(struct arean* arean_ptr)
+static inline int init_chuck_info(struct arean* arean_ptr)
 {
     struct list_head* head = &(arean_ptr->free_list);
     uint8_t* ptr = arean_ptr->buffer_ptr;
@@ -78,9 +78,13 @@ int init_chuck_info(struct arean* arean_ptr)
 }
 
 
-struct chunk_info* find_suitable_chunk(const size_t size)
+static inline struct chunk_info* find_suitable_chunk(const size_t size)
 {
     struct list_head* indirect_chuck_ptr = &(g_mainArean.free_list);
+    struct list_head* pos;
+    list_head_for_each(pos, indirect_chuck_ptr) {
+        struct chunk_info* chunk = list_entry(pos, struct chunk_info, list);
+    }
     return NULL;
 }
 
@@ -101,8 +105,8 @@ static inline void* intern_malloc(const size_t size)
 
 static inline uint32_t intern_free(void* ptr)
 {
-    ptr -= sizeof(struct chunk_info);
     struct chunk_info* chuck_ptr = (struct chunk_info*)ptr;
+    chuck_ptr--;
     // remove from double list
     struct list_head* node = list_head_remove(&(chuck_ptr->list));
     // insert into free list
@@ -122,15 +126,16 @@ static inline uint32_t arean_memory_empty(struct arean* arean_ptr)
 }
 
 
-void* malloc(const size_t size)
+void* smalloc(const size_t size)
 {
     if (!g_mainArean.init_flag) {
         init_arean(&g_mainArean);
     }
+    return intern_malloc(size);
 }
 
 
-int free(void* ptr)
+int sfree(void* ptr)
 {
     if (ptr != NULL) {
         return intern_free(ptr);
