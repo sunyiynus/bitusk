@@ -33,7 +33,7 @@ TEST_CASE("Allocate and free memory from arean") {
     init_arean(&g_mainArean);  // 初始化主 arean
 
     // 测试分配一个小块内存
-    void* ptr1 = malloc(128);
+    void* ptr1 = smalloc(128);
     REQUIRE(ptr1 != nullptr);
 
     // 检查是否从 free_list 移动到 used_list
@@ -67,7 +67,7 @@ TEST_CASE("Multiple allocations and frees") {
     // 分配多块内存
     void* ptrs[10];
     for (int i = 0; i < 10; ++i) {
-        ptrs[i] = malloc(128);
+        ptrs[i] = smalloc(128);
         REQUIRE(ptrs[i] != nullptr);
     }
 
@@ -95,5 +95,50 @@ TEST_CASE("Multiple allocations and frees") {
     }
     REQUIRE(used_count == 7);
     REQUIRE(free_count > 0);
+}
+
+void* ptrs[700];
+TEST_CASE("Multiple allocations and frees - Stress Test with 100,000 iterations") {
+    // init_arean(&g_mainArean);  // 初始化主 arean
+
+    // 重复进行10万次内存分配和释放
+    const int num_iterations = 100000;
+    const int alloc_size = 128;
+    const int alloc_count = 700;
+    
+    for (int j = 0; j < num_iterations; ++j) {
+        // 分配多块内存
+        
+        for (int i = 0; i < alloc_count; ++i) {
+            ptrs[i] = smalloc(alloc_size);
+            REQUIRE(ptrs[i] != nullptr);
+        }
+
+        // 检查是否都在 used_list 中
+        struct list_head* pos = nullptr;
+        int used_count = 0;
+        list_head_for_each(pos, &g_mainArean.used_list) {
+            used_count++;
+        }
+        REQUIRE(used_count == alloc_count);
+
+        // 随机释放其中一些内存块
+        int free_indices[] = {2, 5, 7};  // 固定释放的索引
+        for (int idx : free_indices) {
+            REQUIRE(sfree(ptrs[idx]) == 0);
+        }
+
+        // 检查 used_list 和 free_list 的节点数量是否一致
+        used_count = 0;
+        int free_count = 0;
+        list_head_for_each(pos, &g_mainArean.used_list) {
+            used_count++;
+        }
+        list_head_for_each(pos, &g_mainArean.free_list) {
+            free_count++;
+        }
+        REQUIRE(used_count == alloc_count - 3);
+        REQUIRE(free_count > 0);
+    }
 }
 // */
