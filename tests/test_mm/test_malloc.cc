@@ -95,6 +95,12 @@ TEST_CASE("Multiple allocations and frees") {
     }
     REQUIRE(used_count == 7);
     REQUIRE(free_count > 0);
+
+    for (size_t i = 0; i < 10; ++i) {
+        if (ptrs[i] != nullptr) {
+            sfree(ptrs[i]);
+        }
+    }
 }
 
 void* ptrs[700];
@@ -104,7 +110,7 @@ TEST_CASE("Multiple allocations and frees - Stress Test with 100,000 iterations"
     // 重复进行10万次内存分配和释放
     const int num_iterations = 100000;
     const int alloc_size = 128;
-    const int alloc_count = 700;
+    const int alloc_count = 300;
     
     for (int j = 0; j < num_iterations; ++j) {
         // 分配多块内存

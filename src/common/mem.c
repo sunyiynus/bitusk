@@ -11,8 +11,9 @@
 #define AREAN_POOL_SIZE 32
 
 #define MAIN_BUFFER_SIZE (1024 * 512) // 512K
+#define AREAN_BUFFER_SIZE (1024 * 512) // 512K
 #define BUFFER_CHUCK_SIZE (1024)
-#define GLOBAL_BUFFER_POOL_SIZE  (1024 * 1024 * 4) // 4MB
+#define GLOBAL_BUFFER_POOL_SIZE  (1024 * 512 * 32) // 4MB
 #define LOG_QUEUE_SIZE (1024)
 
 
@@ -54,6 +55,8 @@ static struct arean g_mainArean = {
 
 static struct arean g_areanPool[AREAN_POOL_SIZE] = {0};
 static uint8_t g_bufferPools[GLOBAL_BUFFER_POOL_SIZE] = {0};
+static uint32_t g_bufferPoolsWaterLine = 0;
+
 static uint16_t g_errorCode = 0;
 
 
@@ -106,9 +109,13 @@ static inline struct arean* get_arean()
     for (size_t i = 0; i < N_ELEMENTS(g_areanPool); ++i) {
         if (!g_areanPool[i].init_flag) {
             arean_ptr = &(g_areanPool[i]);
+            
             break;
         }
     }
+    arean_ptr->buffer_ptr = &g_bufferPools[g_bufferPoolsWaterLine];
+    g_bufferPoolsWaterLine+= AREAN_BUFFER_SIZE;
+    arean_ptr->buffer_size = AREAN_BUFFER_SIZE;
 
 #endif // BRK_ENABLE
     if (UN_INIT_AREAN == init_arean(arean_ptr)) {
@@ -135,6 +142,7 @@ static inline struct arean* find_suitable_arean(void)
     }
     if (!arean_ptr) {
         arean_ptr = get_arean();
+        list_head_insert(&(g_mainArean.arean_list), &(arean_ptr->arean_list));
     }
     return arean_ptr;
 }

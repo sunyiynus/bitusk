@@ -147,7 +147,7 @@ TEST_CASE("list_length handles more than 20 nodes with random insertions and del
     int insertions = 0;
     int deletions = 0;
     size_t new_node_idx = 0;
-    for (int i = 0; i < 600; ++i) {
+    for (int i = 0; i < 60000; ++i) {
         int operation = rand() % 2;  // 生成0或1，决定插入或删除操作
 
         if (operation == 0 && insertions < 25) {
