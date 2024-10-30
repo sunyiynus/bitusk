@@ -2,6 +2,7 @@
 #define BITUSK_STRING_HPP
 #include <cstddef>
 #include <cstring>
+#include "allocator.hpp"
 
 namespace bitusk {
 
@@ -19,6 +20,8 @@ private:
     CharT *bufPtr;
     CharT localBuffer[STRING_LOCAL_BUFFER_SIZE + 1];
 
+    allocator<CharT> allocator;
+
 
 public:
     BasicString(const CharT* const str);
@@ -34,7 +37,8 @@ template<typename CharT>
 inline BasicString<CharT>::BasicString(const CharT* const str) {
     size_type size = strlen(str);
     if (size > STRING_LOCAL_BUFFER_SIZE) {
-
+        bufPtr = allocator.allocate(size + 1);
+        strcpy(bufPtr, src);
     }
 }
 
