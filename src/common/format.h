@@ -4,7 +4,6 @@
 #include "types.h"
 namespace fmt {
 
-    void printf("name {}", var);
 
 template <typename T>
 auto to_string(T var) -> std::string;

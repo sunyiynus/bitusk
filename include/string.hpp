@@ -24,6 +24,10 @@ public:
     BasicString(const CharT* const str);
     BasicString(const BasicString<CharT>& str);
     BasicString(BasicString<CharT>&& str);
+public:
+
+    
+
 };
 
 template<typename CharT>

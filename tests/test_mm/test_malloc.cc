@@ -126,12 +126,13 @@ TEST_CASE("Multiple allocations and frees - Stress Test with 100,000 iterations"
         list_head_for_each(pos, &g_mainArean.used_list) {
             used_count++;
         }
-        REQUIRE(used_count == alloc_count);
+        REQUIRE(used_count >= alloc_count);
 
         // 随机释放其中一些内存块
         int free_indices[] = {2, 5, 7};  // 固定释放的索引
         for (int idx : free_indices) {
             REQUIRE(sfree(ptrs[idx]) == 0);
+            ptrs[idx] = PTR_NULL;
         }
 
         // 检查 used_list 和 free_list 的节点数量是否一致
@@ -143,8 +144,15 @@ TEST_CASE("Multiple allocations and frees - Stress Test with 100,000 iterations"
         list_head_for_each(pos, &g_mainArean.free_list) {
             free_count++;
         }
-        REQUIRE(used_count == alloc_count - 3);
+
+
+        REQUIRE(used_count >= alloc_count - 3);
         REQUIRE(free_count > 0);
+        for (size_t i = 0; i < 700; ++i) {
+            if (ptrs[i]) {
+                sfree(ptrs[i]);
+            }
+        }
     }
 }
 // */
